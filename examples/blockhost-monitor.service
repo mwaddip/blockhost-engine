@@ -1,0 +1,15 @@
+[Unit]
+Description=Blockhost Subscriptions Event Monitor
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/blockhost
+ExecStart=/opt/blockhost/start.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
