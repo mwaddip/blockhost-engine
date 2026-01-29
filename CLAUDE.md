@@ -21,7 +21,16 @@ npm test                 # Run tests
 npm run test:coverage    # Run tests with coverage
 npm run node             # Start local Hardhat node
 npm run deploy:local     # Deploy to local node
+npm run deploy:sepolia   # Deploy to Sepolia testnet
+npm run monitor          # Run event monitor
 npm run clean            # Clean build artifacts
+```
+
+## Environment Setup
+
+Source the shared environment file before running deploy or monitor:
+```bash
+source ~/projects/sharedenv/blockhost.env
 ```
 
 ## Architecture
@@ -33,10 +42,9 @@ blockhost-engine/
 │   └── mocks/           # Mock contracts for testing
 ├── scripts/             # Deployment scripts
 ├── test/                # Contract tests
-└── src/                 # TypeScript server source (planned)
-    ├── monitor/         # Contract event monitoring
-    ├── scheduler/       # Maintenance job scheduling
-    └── actions/         # Actions triggered by events
+└── src/                 # TypeScript server source
+    ├── monitor/         # Contract event polling & processing
+    └── handlers/        # Event handlers (mock implementations)
 ```
 
 ## Smart Contract (BlockhostSubscriptions.sol)
