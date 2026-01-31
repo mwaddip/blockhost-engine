@@ -62,174 +62,104 @@ foundryup
 
 **libpam-web3 (for NFT ECIES encryption):**
 ```bash
-# Install the libpam-web3 package (provides pam_web3_tool)
-dpkg -i /path/to/libpam-web3_*.deb
-
-# Generate server keypair for ECIES encryption
-mkdir -p /etc/pam_web3
-pam_web3_tool generate-keypair --output /etc/pam_web3/server.key
-
-# Note the public key printed - add it to /etc/blockhost/web3.yaml:
-#   server:
-#     public_key: "04..."
+# Install the libpam-web3-tools package (provides pam_web3_tool)
+dpkg -i /path/to/libpam-web3-tools_*.deb
 ```
 
-### 2. Create Directory Structure
+### 2. Install Blockhost Packages
+
+Install packages in dependency order:
 
 ```bash
-mkdir -p /opt/blockhost/src/monitor /opt/blockhost/src/handlers
-mkdir -p /opt/blockhost/terraform
-mkdir -p /etc/blockhost
-mkdir -p /var/lib/blockhost
+# 1. blockhost-common (provides config directories and Python modules)
+dpkg -i blockhost-common_*.deb
 
-# Note: proxmox-terraform is installed as a separate package to /opt/blockhost/proxmox-terraform
+# 2. blockhost-provisioner (provides VM provisioning scripts)
+dpkg -i blockhost-provisioner_*.deb
+
+# 3. blockhost-engine (provides monitor service)
+dpkg -i blockhost-engine_*.deb
 ```
 
-### 3. Copy Application Files
+This creates the directory structure automatically:
+- `/etc/blockhost/` - Configuration files
+- `/var/lib/blockhost/` - Data and terraform working directory
+- `/usr/lib/blockhost-provisioner/` - VM provisioning scripts
 
-Copy the following files from the repository:
+### 3. Installed File Structure
+
+After installing the packages, the following structure is created:
 
 ```
-/opt/blockhost/
-├── package.json              # Monitor dependencies
-├── .env                      # Monitor environment (RPC, contract)
-├── start.sh                  # Monitor startup script
-├── src/
-│   ├── monitor/
-│   │   └── index.ts          # Event polling monitor
-│   └── handlers/
-│       └── index.ts          # Event handlers
-└── terraform/                # Terraform working directory
-    ├── provider.tf.json      # Proxmox provider config
-    └── *.tf.json             # Generated VM configs
-
-# Provided by proxmox-terraform package:
-/opt/blockhost/proxmox-terraform/
-├── scripts/                  # VM provisioning scripts
-├── config/                   # Default configs
-└── cloud-init/               # Cloud-init templates
-
+# Provided by blockhost-common:
 /etc/blockhost/
-├── blockhost.yaml            # Server config (created by blockhost-init)
-├── web3-defaults.yaml        # Blockchain config (created by blockhost-init)
-├── server.key                # Server private key (chmod 600)
-└── deployer.key              # Deployer private key (chmod 600)
+├── db.yaml                   # VM database configuration
+└── web3-defaults.yaml        # Blockchain config (template)
 
 /var/lib/blockhost/
-└── vms.json                  # VM database (created automatically)
+├── terraform/                # Terraform working directory
+└── vms.json                  # VM database (initialized by blockhost-init)
+
+# Provided by blockhost-provisioner:
+/usr/lib/blockhost-provisioner/
+├── scripts/                  # VM provisioning scripts
+└── cloud-init/               # Cloud-init templates
+
+# Provided by blockhost-engine:
+/opt/blockhost/
+├── package.json              # Monitor dependencies
+├── start.sh                  # Monitor startup script
+└── src/                      # TypeScript source
+
+/usr/bin/
+├── blockhost-init            # Server initialization script
+└── blockhost-generate-signup # Signup page generator
+
+# Created by blockhost-init:
+/etc/blockhost/
+├── blockhost.yaml            # Server config
+├── server.key                # Server private key (chmod 600)
+└── deployer.key              # Deployer private key (chmod 600)
 ```
 
-**package.json:**
-```json
-{
-  "name": "blockhost-monitor",
-  "version": "0.1.0",
-  "description": "BlockhostSubscriptions event monitor",
-  "type": "module",
-  "scripts": {
-    "monitor": "npx tsx src/monitor/index.ts"
-  },
-  "dependencies": {
-    "ethers": "^6.9.0",
-    "tsx": "^4.21.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
-}
+### 4. Initialize Server
+
+Run the initialization script to generate keypairs and configuration:
+
+```bash
+sudo blockhost-init
 ```
 
-### 4. Configure Environment
+This creates:
+- Server keypair for ECIES encryption
+- Deployer wallet keypair (for minting NFTs)
+- `/etc/blockhost/blockhost.yaml` configuration
 
-Create `/opt/blockhost/.env`:
+Note the **deployer wallet address** - you'll need to fund it with ETH for gas.
+
+### 5. Configure Environment
+
+Edit `/opt/blockhost/.env` with your contract address:
 
 ```bash
 SEPOLIA_RPC=https://ethereum-sepolia-rpc.publicnode.com
-BLOCKHOST_CONTRACT=0xYourContractAddressHere
+BLOCKHOST_CONTRACT=0xYourDeployedContractAddress
 ```
 
-### 5. Create Startup Script
+Also update the NFT contract address in `/etc/blockhost/web3-defaults.yaml`:
 
-Create `/opt/blockhost/start.sh`:
+```yaml
+blockchain:
+  nft_contract: "0xYourDeployedContractAddress"
+```
+
+### 6. Enable and Start Service
 
 ```bash
-#!/bin/bash
-cd /opt/blockhost
-set -a
-source .env
-set +a
-exec npx tsx src/monitor/index.ts
+systemctl enable --now blockhost-monitor
 ```
 
-Make it executable:
-```bash
-chmod +x /opt/blockhost/start.sh
-```
-
-### 6. Install Dependencies
-
-```bash
-cd /opt/blockhost
-npm install
-```
-
-### 7. Test Manual Startup
-
-```bash
-/opt/blockhost/start.sh
-```
-
-You should see:
-```
-==============================================
-  BlockhostSubscriptions Event Monitor
-==============================================
-Contract: 0x...
-RPC: https://ethereum-sepolia-rpc.publicnode.com
-Poll Interval: 5000ms
-----------------------------------------------
-
-Connected to network: sepolia (chainId: 11155111)
-Starting from block: XXXXXX
-
-Polling for events...
-
-Monitor is running. Press Ctrl+C to stop.
-```
-
-Press Ctrl+C to stop.
-
-### 8. Configure Systemd Service
-
-Create `/etc/systemd/system/blockhost-monitor.service`:
-
-```ini
-[Unit]
-Description=Blockhost Subscriptions Event Monitor
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/blockhost
-ExecStart=/opt/blockhost/start.sh
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### 9. Enable and Start Service
-
-```bash
-systemctl daemon-reload
-systemctl enable blockhost-monitor
-systemctl start blockhost-monitor
-```
-
-### 10. Verify Service Status
+### 7. Verify Service Status
 
 ```bash
 systemctl status blockhost-monitor
@@ -280,25 +210,24 @@ npm install
 |------|---------|
 | `/opt/blockhost/.env` | Monitor environment (RPC, contract address) |
 | `/opt/blockhost/start.sh` | Monitor startup script |
-| `/opt/blockhost/src/monitor/index.ts` | Event polling monitor |
-| `/opt/blockhost/src/handlers/index.ts` | Event handlers |
-| `/opt/blockhost/terraform/` | Terraform working directory |
-| `/opt/blockhost/proxmox-terraform/` | VM provisioning (from proxmox-terraform package) |
-| `/etc/blockhost/blockhost.yaml` | Server configuration |
+| `/opt/blockhost/src/` | TypeScript source (monitor, handlers) |
+| `/var/lib/blockhost/terraform/` | Terraform working directory |
+| `/usr/lib/blockhost-provisioner/` | VM provisioning scripts |
+| `/etc/blockhost/blockhost.yaml` | Server configuration (keys, addresses) |
 | `/etc/blockhost/web3-defaults.yaml` | Blockchain/NFT configuration |
-| `/etc/blockhost/deployer.key` | Deployer private key |
+| `/etc/blockhost/db.yaml` | Database and IP pool configuration |
+| `/etc/blockhost/server.key` | Server private key (ECIES) |
+| `/etc/blockhost/deployer.key` | Deployer private key (NFT minting) |
 | `/var/lib/blockhost/vms.json` | VM database |
-| `/etc/systemd/system/blockhost-monitor.service` | Systemd service |
 
 ## VM Provisioning
 
-VM provisioning scripts are provided by the `proxmox-terraform` package.
-See that package's documentation for usage details.
+VM provisioning scripts are provided by the `blockhost-provisioner` package.
 
 ### Initialize Terraform
 
 ```bash
-cd /opt/blockhost/terraform
+cd /var/lib/blockhost/terraform
 terraform init
 ```
 
@@ -306,11 +235,11 @@ terraform init
 
 ```bash
 # Test VM generator (mock mode)
-python3 /opt/blockhost/proxmox-terraform/scripts/vm-generator.py test-vm --owner-wallet 0x... --mock --skip-mint
+python3 /usr/lib/blockhost-provisioner/scripts/vm-generator.py test-vm --owner-wallet 0x... --mock --skip-mint
 
 # Create a real VM
-python3 /opt/blockhost/proxmox-terraform/scripts/vm-generator.py myvm --owner-wallet 0x... --apply
+python3 /usr/lib/blockhost-provisioner/scripts/vm-generator.py myvm --owner-wallet 0x... --apply
 
 # Garbage collect expired VMs
-python3 /opt/blockhost/proxmox-terraform/scripts/vm-gc.py --execute --grace-days 3
+python3 /usr/lib/blockhost-provisioner/scripts/vm-gc.py --execute --grace-days 3
 ```

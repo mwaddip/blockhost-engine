@@ -21,7 +21,7 @@ components:
     key_events:
       - name: SubscriptionCreated
         fields: [subscriptionId, planId, subscriber, expiresAt, paidAmount, paymentToken, userEncrypted]
-        triggers: VM provisioning via proxmox-terraform
+        triggers: VM provisioning via blockhost-provisioner
       - name: SubscriptionExtended
         fields: [subscriptionId, planId, extendedBy, newExpiresAt, paidAmount, paymentToken]
         triggers: Update VM expiry in database
@@ -34,7 +34,7 @@ components:
     entry_point: src/monitor/index.ts
     description: |
       Polls blockchain for contract events and dispatches to handlers.
-      Handlers call proxmox-terraform scripts to provision/manage VMs.
+      Handlers call blockhost-provisioner scripts to provision/manage VMs.
 
     handlers:
       - event: SubscriptionCreated
@@ -60,10 +60,16 @@ components:
 
 # External package dependencies
 dependencies:
-  proxmox-terraform:
-    package: proxmox-terraform
-    install_path: /opt/blockhost/proxmox-terraform
-    repository: github.com/mwaddip/proxmox-terraform
+  blockhost-common:
+    package: blockhost-common
+    description: |
+      Shared configuration directory structure and Python modules.
+      Provides /etc/blockhost/, /var/lib/blockhost/, and the blockhost
+      Python package for config loading and VM database access.
+
+  blockhost-provisioner:
+    package: blockhost-provisioner
+    install_path: /usr/lib/blockhost-provisioner
     description: |
       VM provisioning scripts for Proxmox. Creates VMs with cloud-init
       configured for NFT-based web3 SSH authentication.
@@ -123,7 +129,8 @@ deployment:
     components:
       - blockhost-monitor (systemd service watching blockchain)
     requires:
-      - proxmox-terraform package (VM provisioning at /opt/blockhost/proxmox-terraform)
+      - blockhost-common (config directories and Python modules)
+      - blockhost-provisioner (VM provisioning scripts)
 
     config_files:
       - /etc/blockhost/blockhost.yaml (server keypair, decrypt message)
@@ -157,14 +164,16 @@ workflow: |
 # Integration notes
 integration:
   setup_steps:
-    - Install proxmox-terraform package (provides VM provisioning scripts)
-    - Install blockhost-engine package
+    - Install blockhost-common (provides config directories and Python modules)
+    - Install blockhost-provisioner (provides VM provisioning scripts)
+    - Install blockhost-engine
     - Run blockhost-init to generate server keypair and config
     - Deploy contract: npm run deploy:sepolia (or use deployed address)
+    - Update nft_contract in /etc/blockhost/web3-defaults.yaml
     - Fund deployer wallet with ETH for gas
     - Start monitor: systemctl enable --now blockhost-monitor
 
   vm_provisioning:
     description: |
-      The monitor calls vm-generator.py from the proxmox-terraform package.
-      Scripts are expected at /opt/blockhost/proxmox-terraform/scripts/
+      The monitor calls vm-generator.py from the blockhost-provisioner package.
+      Scripts are installed at /usr/lib/blockhost-provisioner/scripts/

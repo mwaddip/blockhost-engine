@@ -40,7 +40,8 @@ Blockchain-based VM hosting subscription system. Users purchase subscriptions on
 - Node.js 18+
 - Python 3.10+
 - Proxmox VE 8+ with Terraform
-- [proxmox-terraform](https://github.com/mwaddip/proxmox-terraform) for VM provisioning
+- `blockhost-common` package (shared configuration)
+- `blockhost-provisioner` package (VM provisioning)
 - [libpam-web3](https://github.com/mwaddip/libpam-web3) for VM authentication
 
 ## Quick Start
@@ -181,7 +182,8 @@ blockhost-engine/
 
 MIT
 
-## Related Projects
+## Related Packages
 
-- [proxmox-terraform](https://github.com/mwaddip/proxmox-terraform) - VM provisioning scripts
+- `blockhost-common` - Shared configuration and Python modules
+- `blockhost-provisioner` - VM provisioning scripts (Proxmox/Terraform)
 - [libpam-web3](https://github.com/mwaddip/libpam-web3) - PAM module for web3 authentication

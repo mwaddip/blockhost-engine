@@ -10,7 +10,8 @@ blockhost-engine is the core component of a hosting subscription management syst
 2. **Monitor Server** (TypeScript) - Watches the smart contract for events and triggers actions
 3. **Maintenance Scheduler** - Manages subscription lifecycle (suspend/destroy expired subscriptions)
 
-VM provisioning is handled by the separate `proxmox-terraform` package, installed at `/opt/blockhost/proxmox-terraform/`.
+VM provisioning is handled by the separate `blockhost-provisioner` package.
+Shared configuration is provided by `blockhost-common`.
 
 ## Build Commands
 
@@ -44,7 +45,7 @@ blockhost-engine/
 ├── test/                # Contract tests
 ├── src/                 # TypeScript server source
 │   ├── monitor/         # Contract event polling & processing
-│   └── handlers/        # Event handlers (calls proxmox-terraform scripts)
+│   └── handlers/        # Event handlers (calls blockhost-provisioner scripts)
 └── examples/            # Deployment examples (systemd, env)
 ```
 

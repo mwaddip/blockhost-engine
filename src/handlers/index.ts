@@ -1,6 +1,6 @@
 /**
  * Event handlers for BlockhostSubscriptions contract events
- * Calls proxmox-terraform scripts to provision/manage VMs
+ * Calls blockhost-provisioner scripts to provision/manage VMs
  */
 
 import { ethers } from "ethers";
@@ -10,9 +10,9 @@ import * as path from "path";
 import * as fs from "fs";
 import * as yaml from "js-yaml";
 
-// Paths on the server
-const SCRIPTS_DIR = "/opt/blockhost/proxmox-terraform/scripts";
-const WORKING_DIR = "/opt/blockhost/proxmox-terraform";
+// Paths on the server (provided by blockhost-provisioner package)
+const SCRIPTS_DIR = "/usr/lib/blockhost-provisioner/scripts";
+const WORKING_DIR = "/var/lib/blockhost";
 const SERVER_PRIVATE_KEY_FILE = "/etc/blockhost/server.key";
 const BLOCKHOST_CONFIG_FILE = "/etc/blockhost/blockhost.yaml";
 
@@ -207,11 +207,9 @@ export async function handleSubscriptionExtended(event: SubscriptionExtendedEven
   // Calculate additional days from current time to new expiry
   const additionalDays = calculateExpiryDays(event.newExpiresAt);
 
-  // Use Python to update the database directly
+  // Use Python to update the database directly (uses blockhost-common module)
   const script = `
-import sys
-sys.path.insert(0, '${SCRIPTS_DIR}')
-from vm_db import get_database
+from blockhost.vm_db import get_database
 
 db = get_database()
 vm = db.get_vm('${vmName}')
@@ -256,17 +254,17 @@ export async function handleSubscriptionCancelled(event: SubscriptionCancelledEv
   // Mark VM for immediate destruction using vm-gc.py with specific VM
   // For now, we'll mark it as destroyed in the database and let terraform destroy it
   const script = `
-import sys
 import subprocess
-sys.path.insert(0, '${SCRIPTS_DIR}')
-from vm_db import get_database
+import os
+from blockhost.vm_db import get_database
+from blockhost.config import load_db_config
 
 db = get_database()
+db_config = load_db_config()
 vm = db.get_vm('${vmName}')
 if vm:
     # Run terraform destroy for this specific VM
-    import os
-    tf_dir = '/opt/blockhost/terraform'
+    tf_dir = db_config.get('terraform_dir', '/var/lib/blockhost/terraform')
     tf_file = os.path.join(tf_dir, '${vmName}.tf.json')
 
     if os.path.exists(tf_file):
