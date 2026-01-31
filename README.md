@@ -39,10 +39,11 @@ Blockchain-based VM hosting subscription system. Users purchase subscriptions on
 
 - Node.js 18+
 - Python 3.10+
+- Foundry (forge/cast) for NFT contract deployment
 - Proxmox VE 8+ with Terraform
 - `blockhost-common` package (shared configuration)
 - `blockhost-provisioner` package (VM provisioning)
-- [libpam-web3](https://github.com/mwaddip/libpam-web3) for VM authentication
+- `libpam-web3-tools` >= 0.4.0 (provides NFT contract and signing page)
 
 ## Quick Start
 
@@ -61,12 +62,19 @@ cp examples/env.example .env
 # Edit .env with your deployer private key and RPC URL
 ```
 
-### 3. Deploy contract (Sepolia testnet)
+### 3. Deploy contracts (Sepolia testnet)
+
+The deploy script deploys both BlockhostSubscriptions and AccessCredentialNFT:
 
 ```bash
 source .env
 npm run deploy:sepolia
 ```
+
+This will:
+- Deploy BlockhostSubscriptions (payment/subscription management)
+- Deploy AccessCredentialNFT (VM access credentials)
+- Update `/etc/blockhost/web3-defaults.yaml` with the NFT contract address
 
 ### 4. Initialize server
 
@@ -186,4 +194,5 @@ MIT
 
 - `blockhost-common` - Shared configuration and Python modules
 - `blockhost-provisioner` - VM provisioning scripts (Proxmox/Terraform)
-- [libpam-web3](https://github.com/mwaddip/libpam-web3) - PAM module for web3 authentication
+- `libpam-web3-tools` - NFT contract, signing page, and CLI tools
+- `libpam-web3` - PAM module for web3 authentication (installed on VMs)
