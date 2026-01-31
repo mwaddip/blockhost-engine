@@ -77,12 +77,12 @@ dependencies:
 
   libpam-web3-tools:
     package: libpam-web3-tools
-    version: ">= 0.4.0"
+    version: ">= 0.5.0"
     description: |
       Provides AccessCredentialNFT contract source and ABI for deployment,
-      plus the signing page HTML embedded in NFTs.
+      plus signing page generator for per-NFT authentication pages.
       Contract at: /usr/share/libpam-web3-tools/contracts/
-      Signing page at: /usr/share/libpam-web3-tools/signing-page/
+      Signing page generator at: /usr/share/libpam-web3-tools/signing-page/
 
 # Environment setup
 environment:
