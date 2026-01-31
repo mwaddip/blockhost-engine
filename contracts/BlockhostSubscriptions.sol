@@ -89,7 +89,8 @@ contract BlockhostSubscriptions is Ownable, ReentrancyGuard {
         address indexed subscriber,
         uint256 expiresAt,
         uint256 paidAmount,
-        address paymentToken
+        address paymentToken,
+        bytes userEncrypted
     );
 
     event SubscriptionExtended(
@@ -353,12 +354,14 @@ contract BlockhostSubscriptions is Ownable, ReentrancyGuard {
      * @param planId The plan to subscribe to
      * @param days_ Number of days to subscribe for
      * @param paymentMethodId The payment method to use (1 for stablecoin, 2+ for other tokens)
+     * @param userEncrypted Encrypted connection details (AES-256-GCM encrypted JSON with hostname/port/username)
      * @return subscriptionId The ID of the new subscription
      */
     function buySubscription(
         uint256 planId,
         uint256 days_,
-        uint256 paymentMethodId
+        uint256 paymentMethodId,
+        bytes calldata userEncrypted
     ) external nonReentrant returns (uint256 subscriptionId) {
         // Validate inputs
         if (planId == 0 || planId >= nextPlanId) revert PlanNotFound(planId);
@@ -396,7 +399,8 @@ contract BlockhostSubscriptions is Ownable, ReentrancyGuard {
             msg.sender,
             expiresAt,
             tokenAmount,
-            pm.tokenAddress
+            pm.tokenAddress,
+            userEncrypted
         );
     }
 

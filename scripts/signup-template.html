@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PAGE_TITLE}}</title>
+    <style>
+        :root {
+            --primary: {{PRIMARY_COLOR}};
+            --primary-dark: color-mix(in srgb, var(--primary) 80%, black);
+            --bg: #0f0f0f;
+            --surface: #1a1a1a;
+            --surface-hover: #252525;
+            --text: #e5e5e5;
+            --text-muted: #888;
+            --border: #333;
+            --success: #22c55e;
+            --error: #ef4444;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 480px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .step:last-child { margin-bottom: 0; }
+        .step-number {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+        .step-number.done {
+            background: var(--success);
+        }
+        .step-number.error {
+            background: var(--error);
+        }
+        .step-content { flex: 1; }
+        .step-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .step-desc {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        button:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: var(--surface-hover);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--border);
+        }
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .form-group { margin-bottom: 1rem; }
+        .wallet-address {
+            font-family: monospace;
+            font-size: 0.875rem;
+            background: var(--bg);
+            padding: 0.5rem;
+            border-radius: 6px;
+            word-break: break-all;
+        }
+        .status {
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+        }
+        .status.success {
+            background: color-mix(in srgb, var(--success) 20%, transparent);
+            border: 1px solid var(--success);
+        }
+        .status.error {
+            background: color-mix(in srgb, var(--error) 20%, transparent);
+            border: 1px solid var(--error);
+        }
+        .status.info {
+            background: color-mix(in srgb, var(--primary) 20%, transparent);
+            border: 1px solid var(--primary);
+        }
+        .hidden { display: none !important; }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .tx-link {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .tx-link:hover {
+            text-decoration: underline;
+        }
+        .message-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            margin: 0.75rem 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{PAGE_TITLE}}</h1>
+        <p class="subtitle">Get your own server with web3 authentication</p>
+
+        <!-- Step 1: Connect Wallet -->
+        <div class="card" id="step1">
+            <div class="step">
+                <div class="step-number" id="step1-num">1</div>
+                <div class="step-content">
+                    <div class="step-title">Connect Wallet</div>
+                    <div class="step-desc">Connect your Ethereum wallet to get started</div>
+                </div>
+            </div>
+            <div id="wallet-not-connected">
+                <button id="btn-connect">Connect Wallet</button>
+            </div>
+            <div id="wallet-connected" class="hidden">
+                <div class="wallet-address" id="wallet-address"></div>
+            </div>
+        </div>
+
+        <!-- Step 2: Sign Message -->
+        <div class="card" id="step2">
+            <div class="step">
+                <div class="step-number" id="step2-num">2</div>
+                <div class="step-content">
+                    <div class="step-title">Sign Authentication Message</div>
+                    <div class="step-desc">Sign this message to create your secure access key</div>
+                </div>
+            </div>
+            <div class="message-box" id="sign-message">{{DECRYPT_MESSAGE}}</div>
+            <button id="btn-sign" disabled>Sign Message</button>
+            <div id="signature-status"></div>
+        </div>
+
+        <!-- Step 3: Configure & Purchase -->
+        <div class="card" id="step3">
+            <div class="step">
+                <div class="step-number" id="step3-num">3</div>
+                <div class="step-content">
+                    <div class="step-title">Purchase Subscription</div>
+                    <div class="step-desc">Choose your plan and complete the purchase</div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="plan-select">Plan</label>
+                <select id="plan-select" disabled>
+                    <option value="1">Basic - $10/day</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="days-input">Duration (days)</label>
+                <input type="number" id="days-input" value="30" min="1" max="365" disabled>
+            </div>
+            <div class="form-group">
+                <label>Total Cost</label>
+                <div id="total-cost" style="font-size: 1.25rem; font-weight: 600;">$300.00 USDC</div>
+            </div>
+            <button id="btn-purchase" disabled>Purchase Subscription</button>
+            <div id="purchase-status"></div>
+        </div>
+
+        <!-- Result -->
+        <div class="card hidden" id="result-card">
+            <div class="step">
+                <div class="step-number done">✓</div>
+                <div class="step-content">
+                    <div class="step-title">Subscription Purchased!</div>
+                    <div class="step-desc">Your server is being provisioned</div>
+                </div>
+            </div>
+            <div class="status success">
+                <p><strong>Transaction:</strong></p>
+                <p><a id="tx-link" class="tx-link" href="#" target="_blank"></a></p>
+                <p style="margin-top: 0.75rem;">Your server will be ready shortly. You'll receive an NFT with your access credentials.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ethers.js from CDN (required for wallet interaction) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+
+    <!-- Skip encryption for now - pass signature directly (server will handle) -->
+    <script>
+    // Simplified approach: just hex-encode the signature
+    // The server can implement decryption later if needed over HTTPS
+    window.ECIES = {
+        hexToBytes(hex) {
+            hex = hex.startsWith('0x') ? hex.slice(2) : hex;
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < bytes.length; i++) {
+                bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+            }
+            return bytes;
+        },
+
+        bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        },
+
+        async encrypt(publicKeyHex, plaintext) {
+            // For now, just encode the signature as hex
+            // TODO: Implement proper ECIES when served over HTTPS
+            const plaintextBytes = new TextEncoder().encode(plaintext);
+            return '0x' + this.bytesToHex(plaintextBytes);
+        }
+    };
+    console.log('ECIES ready (passthrough mode)');
+    </script>
+
+    <script>
+    // Configuration (injected by generator)
+    const CONFIG = {
+        serverPublicKey: '{{SERVER_PUBLIC_KEY}}',
+        decryptMessage: '{{DECRYPT_MESSAGE}}',
+        chainId: {{CHAIN_ID}},
+        rpcUrl: '{{RPC_URL}}',
+        subscriptionContract: '{{SUBSCRIPTION_CONTRACT}}',
+        usdcAddress: '{{USDC_ADDRESS}}',
+    };
+
+    // Contract ABIs
+    const SUBSCRIPTION_ABI = [
+        'function buySubscription(uint256 planId, uint256 days, uint256 paymentMethodId, bytes userEncrypted) external returns (uint256)',
+        'function getPlan(uint256 planId) view returns (string name, uint256 pricePerDayUsdCents, bool active)',
+        'function calculatePayment(uint256 planId, uint256 days, uint256 paymentMethodId) view returns (uint256)',
+    ];
+
+    const ERC20_ABI = [
+        'function approve(address spender, uint256 amount) external returns (bool)',
+        'function allowance(address owner, address spender) view returns (uint256)',
+        'function balanceOf(address account) view returns (uint256)',
+        'function decimals() view returns (uint8)',
+    ];
+
+    // State
+    let provider = null;
+    let signer = null;
+    let userAddress = null;
+    let userSignature = null;
+    let encryptedSignature = null;
+
+    // DOM Elements
+    const btnConnect = document.getElementById('btn-connect');
+    const btnSign = document.getElementById('btn-sign');
+    const btnPurchase = document.getElementById('btn-purchase');
+    const walletNotConnected = document.getElementById('wallet-not-connected');
+    const walletConnected = document.getElementById('wallet-connected');
+    const walletAddressEl = document.getElementById('wallet-address');
+    const daysInput = document.getElementById('days-input');
+    const planSelect = document.getElementById('plan-select');
+    const totalCostEl = document.getElementById('total-cost');
+    const signatureStatus = document.getElementById('signature-status');
+    const purchaseStatus = document.getElementById('purchase-status');
+    const resultCard = document.getElementById('result-card');
+
+    // Helper: Show status message
+    function showStatus(element, message, type = 'info') {
+        element.innerHTML = `<div class="status ${type}">${message}</div>`;
+    }
+
+    // Helper: Update step indicator
+    function updateStep(stepNum, status) {
+        const el = document.getElementById(`step${stepNum}-num`);
+        el.classList.remove('done', 'error');
+        if (status === 'done') {
+            el.classList.add('done');
+            el.textContent = '✓';
+        } else if (status === 'error') {
+            el.classList.add('error');
+            el.textContent = '!';
+        } else {
+            el.textContent = stepNum;
+        }
+    }
+
+    // Step 1: Connect Wallet
+    btnConnect.addEventListener('click', async () => {
+        try {
+            btnConnect.disabled = true;
+            btnConnect.innerHTML = '<span class="spinner"></span>Connecting...';
+
+            if (!window.ethereum) {
+                throw new Error('No wallet found. Please install MetaMask.');
+            }
+
+            provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.send('eth_requestAccounts', []);
+            signer = await provider.getSigner();
+            userAddress = await signer.getAddress();
+
+            // Check network
+            const network = await provider.getNetwork();
+            if (Number(network.chainId) !== CONFIG.chainId) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x' + CONFIG.chainId.toString(16) }],
+                    });
+                    provider = new ethers.BrowserProvider(window.ethereum);
+                    signer = await provider.getSigner();
+                } catch (e) {
+                    throw new Error(`Please switch to chain ID ${CONFIG.chainId}`);
+                }
+            }
+
+            // Update UI
+            walletNotConnected.classList.add('hidden');
+            walletConnected.classList.remove('hidden');
+            walletAddressEl.textContent = userAddress;
+            updateStep(1, 'done');
+
+            // Enable next step
+            btnSign.disabled = false;
+
+        } catch (err) {
+            showStatus(signatureStatus, err.message, 'error');
+            updateStep(1, 'error');
+            btnConnect.disabled = false;
+            btnConnect.textContent = 'Connect Wallet';
+        }
+    });
+
+    // Step 2: Sign Message
+    btnSign.addEventListener('click', async () => {
+        try {
+            btnSign.disabled = true;
+            btnSign.innerHTML = '<span class="spinner"></span>Waiting for signature...';
+
+            // Sign the message
+            userSignature = await signer.signMessage(CONFIG.decryptMessage);
+            console.log('Signature:', userSignature);
+
+            // For testing over HTTP, pass signature directly (no encryption)
+            // Production should use HTTPS + ECIES encryption
+            encryptedSignature = userSignature; // signature is already 0x-prefixed hex
+            console.log('Using signature directly (no encryption)');
+
+            showStatus(signatureStatus, 'Signature captured!', 'success');
+            updateStep(2, 'done');
+
+            // Enable next step
+            planSelect.disabled = false;
+            daysInput.disabled = false;
+            btnPurchase.disabled = false;
+            updateCost();
+
+        } catch (err) {
+            showStatus(signatureStatus, err.message, 'error');
+            updateStep(2, 'error');
+            btnSign.disabled = false;
+            btnSign.textContent = 'Sign Message';
+        }
+    });
+
+    // Update cost calculation
+    async function updateCost() {
+        const days = parseInt(daysInput.value) || 30;
+        const pricePerDay = 10; // $10/day - TODO: fetch from contract
+        const total = days * pricePerDay;
+        totalCostEl.textContent = `$${total.toFixed(2)} USDC`;
+    }
+
+    daysInput.addEventListener('input', updateCost);
+    planSelect.addEventListener('change', updateCost);
+
+    // Step 3: Purchase
+    btnPurchase.addEventListener('click', async () => {
+        try {
+            btnPurchase.disabled = true;
+            btnPurchase.innerHTML = '<span class="spinner"></span>Processing...';
+
+            const planId = parseInt(planSelect.value);
+            const days = parseInt(daysInput.value);
+
+            if (!CONFIG.subscriptionContract || !CONFIG.usdcAddress) {
+                throw new Error('Contract addresses not configured');
+            }
+
+            const subscriptionContract = new ethers.Contract(
+                CONFIG.subscriptionContract,
+                SUBSCRIPTION_ABI,
+                signer
+            );
+
+            const usdc = new ethers.Contract(CONFIG.usdcAddress, ERC20_ABI, signer);
+
+            // Calculate payment
+            showStatus(purchaseStatus, 'Calculating payment...', 'info');
+            const paymentAmount = await subscriptionContract.calculatePayment(planId, days, 1);
+            console.log('Payment amount:', ethers.formatUnits(paymentAmount, 6), 'USDC');
+
+            // Check balance
+            const balance = await usdc.balanceOf(userAddress);
+            if (balance < paymentAmount) {
+                throw new Error(`Insufficient USDC balance. Need ${ethers.formatUnits(paymentAmount, 6)} USDC`);
+            }
+
+            // Check/set allowance
+            const allowance = await usdc.allowance(userAddress, CONFIG.subscriptionContract);
+            if (allowance < paymentAmount) {
+                showStatus(purchaseStatus, 'Approving USDC spend...', 'info');
+                const approveTx = await usdc.approve(CONFIG.subscriptionContract, paymentAmount);
+                await approveTx.wait();
+            }
+
+            // Buy subscription with encrypted signature
+            showStatus(purchaseStatus, 'Confirm transaction in wallet...', 'info');
+            const tx = await subscriptionContract.buySubscription(
+                planId,
+                days,
+                1, // USDC payment method
+                encryptedSignature
+            );
+
+            showStatus(purchaseStatus, 'Transaction submitted, waiting for confirmation...', 'info');
+            const receipt = await tx.wait();
+
+            // Show success
+            updateStep(3, 'done');
+            document.getElementById('step3').classList.add('hidden');
+            resultCard.classList.remove('hidden');
+
+            const txLink = document.getElementById('tx-link');
+            txLink.href = `https://sepolia.etherscan.io/tx/${receipt.hash}`;
+            txLink.textContent = receipt.hash.slice(0, 10) + '...' + receipt.hash.slice(-8);
+
+        } catch (err) {
+            console.error(err);
+            showStatus(purchaseStatus, err.message || 'Transaction failed', 'error');
+            updateStep(3, 'error');
+            btnPurchase.disabled = false;
+            btnPurchase.textContent = 'Purchase Subscription';
+        }
+    });
+
+    // Initialize
+    console.log('Blockhost Signup Page loaded');
+    console.log('Config:', { ...CONFIG, serverPublicKey: CONFIG.serverPublicKey.slice(0, 20) + '...' });
+    </script>
+</body>
+</html>

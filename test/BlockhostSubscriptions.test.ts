@@ -108,11 +108,25 @@ describe("BlockhostSubscriptions", function () {
 
       const initialBalance = await stablecoin.balanceOf(user1.address);
 
-      await expect(contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID))
+      await expect(contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x"))
         .to.emit(contract, "SubscriptionCreated");
 
       const finalBalance = await stablecoin.balanceOf(user1.address);
       expect(initialBalance - finalBalance).to.equal(expectedCost);
+    });
+
+    it("should emit userEncrypted in SubscriptionCreated event", async function () {
+      const encryptedData = "0xdeadbeef1234567890";
+
+      const tx = await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, encryptedData);
+      const receipt = await tx.wait();
+
+      const event = receipt?.logs.find(
+        (log) => contract.interface.parseLog(log as any)?.name === "SubscriptionCreated"
+      );
+
+      const parsed = contract.interface.parseLog(event as any);
+      expect(parsed?.args.userEncrypted).to.equal(encryptedData);
     });
 
     it("should calculate exact stablecoin amount without slippage", async function () {
@@ -127,7 +141,7 @@ describe("BlockhostSubscriptions", function () {
     });
 
     it("should extend subscription with stablecoin", async function () {
-      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
 
       const subBefore = await contract.getSubscription(1);
 
@@ -143,7 +157,7 @@ describe("BlockhostSubscriptions", function () {
       const freshContract = await BlockhostSubscriptions.deploy();
       await freshContract.createPlan("Test", 100);
 
-      await expect(freshContract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID))
+      await expect(freshContract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x"))
         .to.be.revertedWithCustomError(freshContract, "PaymentMethodNotFound");
     });
   });
@@ -178,7 +192,7 @@ describe("BlockhostSubscriptions", function () {
 
     it("should allow user to choose payment method", async function () {
       // Buy with stablecoin
-      await contract.connect(user1).buySubscription(1, 30, 1);
+      await contract.connect(user1).buySubscription(1, 30, 1, "0x");
 
       // Extend with token
       await contract.connect(user1).extendSubscription(1, 30, 2);
@@ -271,7 +285,7 @@ describe("BlockhostSubscriptions", function () {
 
       const initialBalance = await paymentToken.balanceOf(user1.address);
 
-      await expect(contract.connect(user1).buySubscription(1, days, 2))
+      await expect(contract.connect(user1).buySubscription(1, days, 2, "0x"))
         .to.emit(contract, "SubscriptionCreated");
 
       const finalBalance = await paymentToken.balanceOf(user1.address);
@@ -295,7 +309,7 @@ describe("BlockhostSubscriptions", function () {
     beforeEach(async function () {
       await contract.setPrimaryStablecoin(await stablecoin.getAddress());
       await contract.createPlan("Basic Plan", PLAN_PRICE_CENTS);
-      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
     });
 
     it("should extend an active subscription", async function () {
@@ -336,7 +350,7 @@ describe("BlockhostSubscriptions", function () {
     beforeEach(async function () {
       await contract.setPrimaryStablecoin(await stablecoin.getAddress());
       await contract.createPlan("Basic Plan", PLAN_PRICE_CENTS);
-      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
     });
 
     it("should cancel a subscription", async function () {
@@ -366,7 +380,7 @@ describe("BlockhostSubscriptions", function () {
     beforeEach(async function () {
       await contract.setPrimaryStablecoin(await stablecoin.getAddress());
       await contract.createPlan("Basic Plan", PLAN_PRICE_CENTS);
-      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
     });
 
     it("should withdraw stablecoin funds", async function () {
@@ -388,7 +402,7 @@ describe("BlockhostSubscriptions", function () {
     });
 
     it("should return correct days remaining", async function () {
-      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
 
       const days = await contract.daysRemaining(1);
       expect(days).to.be.gte(29n);
@@ -402,7 +416,7 @@ describe("BlockhostSubscriptions", function () {
     });
 
     it("should return 0 days for expired subscription", async function () {
-      await contract.connect(user1).buySubscription(1, 5, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 5, STABLECOIN_PAYMENT_ID, "0x");
 
       await time.increase(6 * ONE_DAY);
 
@@ -411,8 +425,8 @@ describe("BlockhostSubscriptions", function () {
     });
 
     it("should get expired subscriptions", async function () {
-      await contract.connect(user1).buySubscription(1, 5, STABLECOIN_PAYMENT_ID);
-      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 5, STABLECOIN_PAYMENT_ID, "0x");
+      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
 
       await time.increase(10 * ONE_DAY);
 
@@ -422,8 +436,8 @@ describe("BlockhostSubscriptions", function () {
     });
 
     it("should get subscriptions expiring soon", async function () {
-      await contract.connect(user1).buySubscription(1, 3, STABLECOIN_PAYMENT_ID);
-      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 3, STABLECOIN_PAYMENT_ID, "0x");
+      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
 
       const expiringSoon = await contract.getSubscriptionsExpiringSoon(5 * ONE_DAY, 0, 10);
       expect(expiringSoon.length).to.equal(1);
@@ -431,9 +445,9 @@ describe("BlockhostSubscriptions", function () {
     });
 
     it("should get subscriptions by subscriber", async function () {
-      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
-      await contract.connect(user1).buySubscription(1, 15, STABLECOIN_PAYMENT_ID);
-      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID);
+      await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
+      await contract.connect(user1).buySubscription(1, 15, STABLECOIN_PAYMENT_ID, "0x");
+      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
 
       const user1Subs = await contract.getSubscriptionsBySubscriber(user1.address);
       expect(user1Subs.length).to.equal(2);
@@ -462,7 +476,7 @@ describe("BlockhostSubscriptions", function () {
         await stablecoin.getAddress()
       );
 
-      await expect(contract.connect(user1).buySubscription(1, 30, 2))
+      await expect(contract.connect(user1).buySubscription(1, 30, 2, "0x"))
         .to.be.revertedWithCustomError(contract, "InsufficientLiquidity");
     });
 
@@ -470,7 +484,7 @@ describe("BlockhostSubscriptions", function () {
       await contract.setPrimaryStablecoin(await stablecoin.getAddress());
 
       // Stablecoin payments don't need liquidity check
-      await expect(contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID))
+      await expect(contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x"))
         .to.emit(contract, "SubscriptionCreated");
     });
 

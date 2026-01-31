@@ -1,9 +1,67 @@
+# Dependencies
 node_modules/
+
+# Build artifacts
 cache/
 artifacts/
 typechain-types/
 coverage/
 coverage.json
+dist/
+*.tsbuildinfo
+
+# Environment and secrets
 .env
-.env.local
+.env.*
+*.env
+!.env.example
+!env.example
+
+# Private keys and credentials
+*.key
+*.pem
+*.p12
+*.pfx
+server.key
+private.key
+credentials.json
+secrets.yaml
+secrets.json
+
+# Blockhost server configs (contain private keys)
+/etc/blockhost/
+blockhost.yaml
+
+# Logs
 *.log
+logs/
+*.log.*
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.nyc_output/
+
+# Claude Code
+.claude/
+
+# Generated signup pages (contain config)
+signup.html
+!scripts/signup-template.html
+
+# Terraform state (managed separately)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Database files
+*.db
+*.sqlite
+vms.json

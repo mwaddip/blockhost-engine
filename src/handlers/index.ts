@@ -4,12 +4,28 @@
  */
 
 import { ethers } from "ethers";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import * as path from "path";
+
+import * as fs from "fs";
+import * as yaml from "js-yaml";
 
 // Paths on the server
 const SCRIPTS_DIR = "/opt/blockhost/proxmox-terraform/scripts";
 const WORKING_DIR = "/opt/blockhost/proxmox-terraform";
+const SERVER_PRIVATE_KEY_FILE = "/etc/blockhost/server.key";
+const BLOCKHOST_CONFIG_FILE = "/etc/blockhost/blockhost.yaml";
+
+// Load static decryptMessage from config (same for all users)
+function getDecryptMessage(): string {
+  try {
+    const config = yaml.load(fs.readFileSync(BLOCKHOST_CONFIG_FILE, "utf8")) as Record<string, unknown>;
+    return (config.decrypt_message as string) || "blockhost-access";
+  } catch (err) {
+    console.warn(`[WARN] Could not load config, using default decrypt_message`);
+    return "blockhost-access";
+  }
+}
 
 export interface SubscriptionCreatedEvent {
   subscriptionId: bigint;
@@ -18,6 +34,7 @@ export interface SubscriptionCreatedEvent {
   expiresAt: bigint;
   paidAmount: bigint;
   paymentToken: string;
+  userEncrypted: string; // Hex-encoded encrypted connection details
 }
 
 export interface SubscriptionExtendedEvent {
@@ -66,6 +83,33 @@ function calculateExpiryDays(expiresAt: bigint): number {
 }
 
 /**
+ * Decrypt userEncrypted data using the server's private key
+ * Returns the decrypted user signature, or null if decryption fails
+ *
+ * For testing: if the data looks like a raw signature (0x + 130 hex chars), use it directly
+ */
+function decryptUserSignature(userEncrypted: string): string | null {
+  // Check if it's a raw signature (65 bytes = 130 hex chars + 0x prefix)
+  // Ethereum signatures are 65 bytes: r (32) + s (32) + v (1)
+  if (userEncrypted.startsWith("0x") && userEncrypted.length === 132) {
+    console.log("[INFO] Using raw signature (no decryption needed)");
+    return userEncrypted;
+  }
+
+  // Otherwise, try to decrypt with server's private key
+  try {
+    const result = execSync(
+      `pam_web3_tool decrypt --private-key-file ${SERVER_PRIVATE_KEY_FILE} --ciphertext ${userEncrypted}`,
+      { encoding: "utf8", timeout: 10000 }
+    );
+    return result.trim();
+  } catch (err) {
+    console.error(`[ERROR] Failed to decrypt user signature: ${err}`);
+    return null;
+  }
+}
+
+/**
  * Run a Python script and return a promise
  */
 function runScript(script: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -103,17 +147,36 @@ export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent,
   console.log(`Expires At: ${new Date(Number(event.expiresAt) * 1000).toISOString()}`);
   console.log(`Paid Amount: ${ethers.formatUnits(event.paidAmount, 6)} (assuming 6 decimals)`);
   console.log(`Payment Token: ${event.paymentToken}`);
+  console.log(`User Encrypted: ${event.userEncrypted.length > 10 ? event.userEncrypted.slice(0, 10) + "..." : event.userEncrypted}`);
   console.log("------------------------------------------");
   console.log(`Provisioning VM: ${vmName}`);
   console.log(`Expiry: ${expiryDays} days`);
 
-  // Call vm-generator.py to create the VM
-  const result = await runScript("vm-generator.py", [
+  // Build vm-generator.py arguments
+  const args = [
     vmName,
     "--owner-wallet", event.subscriber,
     "--expiry-days", expiryDays.toString(),
     "--apply",
-  ]);
+  ];
+
+  // Decrypt user signature if provided
+  if (event.userEncrypted && event.userEncrypted !== "0x") {
+    console.log("Decrypting user signature...");
+    const userSignature = decryptUserSignature(event.userEncrypted);
+    if (userSignature) {
+      console.log("User signature decrypted successfully");
+      args.push("--user-signature", userSignature);
+      // Use static decryptMessage from config (same for all users)
+      const decryptMessage = getDecryptMessage();
+      args.push("--decrypt-message", decryptMessage);
+    } else {
+      console.warn("[WARN] Could not decrypt user signature, proceeding without encrypted connection details");
+    }
+  }
+
+  // Call vm-generator.py to create the VM
+  const result = await runScript("vm-generator.py", args);
 
   if (result.code === 0) {
     console.log(`[OK] VM ${vmName} provisioned successfully`);

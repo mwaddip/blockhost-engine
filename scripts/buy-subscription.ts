@@ -6,7 +6,7 @@
 import { ethers } from "ethers";
 
 const CONTRACT_ABI = [
-  "function buySubscription(uint256 planId, uint256 days, uint256 paymentMethodId) external",
+  "function buySubscription(uint256 planId, uint256 days, uint256 paymentMethodId, bytes userEncrypted) external",
   "function getPlan(uint256 planId) view returns (string name, uint256 pricePerDayUsdCents, bool active)",
 ];
 
@@ -78,9 +78,9 @@ async function main() {
     console.log("Approved!\n");
   }
 
-  // Buy subscription
+  // Buy subscription (passing empty userEncrypted - real encrypted data comes from signup page)
   console.log("Buying subscription...");
-  const tx2 = await contract.buySubscription(planId, days, 1);
+  const tx2 = await contract.buySubscription(planId, days, 1, "0x");
   console.log(`TX: ${tx2.hash}`);
   await tx2.wait();
   console.log("Subscription purchased!\n");

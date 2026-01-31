@@ -16,7 +16,7 @@ import {
 const CONTRACT_ABI = [
   "event PlanCreated(uint256 indexed planId, string name, uint256 pricePerDayUsdCents)",
   "event PlanUpdated(uint256 indexed planId, string name, uint256 pricePerDayUsdCents, bool active)",
-  "event SubscriptionCreated(uint256 indexed subscriptionId, uint256 indexed planId, address indexed subscriber, uint256 expiresAt, uint256 paidAmount, address paymentToken)",
+  "event SubscriptionCreated(uint256 indexed subscriptionId, uint256 indexed planId, address indexed subscriber, uint256 expiresAt, uint256 paidAmount, address paymentToken, bytes userEncrypted)",
   "event SubscriptionExtended(uint256 indexed subscriptionId, uint256 indexed planId, address indexed extendedBy, uint256 newExpiresAt, uint256 paidAmount, address paymentToken)",
   "event SubscriptionCancelled(uint256 indexed subscriptionId, uint256 indexed planId, address indexed subscriber)",
   "event PrimaryStablecoinSet(address indexed stablecoinAddress, uint8 decimals)",
@@ -55,6 +55,7 @@ async function processLogs(
             expiresAt: parsed.args[3],
             paidAmount: parsed.args[4],
             paymentToken: parsed.args[5],
+            userEncrypted: parsed.args[6],
           }, txHash);
           break;
 

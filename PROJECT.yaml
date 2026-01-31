@@ -1,0 +1,182 @@
+# PROJECT.yaml - Machine-readable project specification for Claude Code
+# This file enables other Claude sessions to import this project as a submodule
+# and understand how to interact with it without reading the entire codebase.
+
+name: blockhost-engine
+version: "1.0.0"
+description: |
+  Blockchain-based VM hosting subscription system. Users purchase subscriptions
+  on-chain, which triggers automatic VM provisioning with NFT-based SSH authentication.
+
+# Project components
+components:
+  smart_contract:
+    name: BlockhostSubscriptions
+    language: solidity
+    path: contracts/BlockhostSubscriptions.sol
+    description: |
+      EVM contract handling subscription purchases, extensions, and cancellations.
+      Emits events that the monitor service watches to trigger VM provisioning.
+
+    key_events:
+      - name: SubscriptionCreated
+        fields: [subscriptionId, planId, subscriber, expiresAt, paidAmount, paymentToken, userEncrypted]
+        triggers: VM provisioning via proxmox-terraform
+      - name: SubscriptionExtended
+        fields: [subscriptionId, planId, extendedBy, newExpiresAt, paidAmount, paymentToken]
+        triggers: Update VM expiry in database
+      - name: SubscriptionCancelled
+        fields: [subscriptionId, planId, subscriber]
+        triggers: VM destruction
+
+  monitor:
+    language: typescript
+    entry_point: src/monitor/index.ts
+    description: |
+      Polls blockchain for contract events and dispatches to handlers.
+      Handlers call proxmox-terraform scripts to provision/manage VMs.
+
+    handlers:
+      - event: SubscriptionCreated
+        action: Calls vm-generator.py to create VM and mint NFT
+      - event: SubscriptionExtended
+        action: Updates VM expiry in database
+      - event: SubscriptionCancelled
+        action: Destroys VM via Terraform
+
+  signup_page:
+    path: scripts/generate-signup-page.py
+    template: scripts/signup-template.html
+    description: |
+      Generates static HTML signup page that connects to user's wallet,
+      has them sign a message (for encrypted connection details), and
+      submits the buySubscription transaction.
+
+  server_init:
+    path: scripts/init-server.sh
+    description: |
+      Server initialization script. Generates server keypair for ECIES
+      encryption, creates /etc/blockhost/blockhost.yaml config.
+
+# Submodule dependencies
+submodules:
+  proxmox-terraform:
+    path: proxmox-terraform/
+    repository: github.com/mwaddip/proxmox-terraform
+    description: |
+      VM provisioning scripts for Proxmox. Creates VMs with cloud-init
+      configured for NFT-based web3 SSH authentication.
+
+    key_scripts:
+      - name: vm-generator.py
+        purpose: Create VM and mint NFT with embedded signing page
+        args: ["vm-name", "--owner-wallet", "0x...", "--expiry-days", "N", "--apply"]
+      - name: vm-gc.py
+        purpose: Garbage collect expired VMs
+        args: ["--execute", "--grace-days", "N"]
+      - name: mint_nft.py
+        purpose: Mint NFT manually (usually called by vm-generator)
+
+# Environment setup
+environment:
+  shared_env_file: ~/projects/sharedenv/blockhost.env
+  required_variables:
+    - DEPLOYER_PRIVATE_KEY  # Wallet for deploying contracts and minting NFTs
+    - BLOCKHOST_CONTRACT    # Deployed subscription contract address
+    - NFT_CONTRACT          # Deployed NFT contract address (same as above currently)
+    - SEPOLIA_RPC_URL       # Ethereum RPC endpoint
+
+# CLI commands
+commands:
+  install:
+    command: npm install
+    description: Install Node.js dependencies
+
+  compile:
+    command: npm run compile
+    description: Compile Solidity contracts
+
+  test:
+    command: npm test
+    description: Run contract tests
+
+  deploy_local:
+    command: npm run deploy:local
+    description: Deploy to local Hardhat node
+
+  deploy_sepolia:
+    command: source ~/projects/sharedenv/blockhost.env && npm run deploy:sepolia
+    description: Deploy to Sepolia testnet
+
+  monitor:
+    command: source ~/projects/sharedenv/blockhost.env && npm run monitor
+    description: Start the blockchain event monitor
+
+  generate_signup:
+    command: python3 scripts/generate-signup-page.py --output signup.html
+    description: Generate signup page HTML
+
+  init_server:
+    command: sudo ./scripts/init-server.sh
+    description: Initialize server (generates keypair, creates config)
+
+# Deployment architecture
+deployment:
+  blockchain:
+    network: Sepolia (testnet) or Ethereum mainnet
+    contracts:
+      - BlockhostSubscriptions (handles subscriptions + NFT minting)
+
+  server:
+    components:
+      - blockhost-monitor (systemd service watching blockchain)
+      - proxmox-terraform scripts (in /opt/blockhost/proxmox-terraform)
+
+    config_files:
+      - /etc/blockhost/blockhost.yaml (server keypair, decrypt message)
+      - /etc/blockhost/web3-defaults.yaml (blockchain config)
+      - /var/lib/blockhost/vms.json (VM database)
+
+  vm:
+    template: debian-12-web3-template (VMID 9001)
+    authentication: NFT-based web3 (pam_web3 module)
+    services:
+      - web3-auth-svc (verifies NFT ownership)
+      - web3-sign (serves signing page from NFT metadata)
+
+# Flow diagram
+workflow: |
+  1. User visits signup page (static HTML)
+  2. User connects wallet, signs message, submits buySubscription tx
+  3. Contract emits SubscriptionCreated event with userEncrypted payload
+  4. Monitor detects event, calls vm-generator.py
+  5. vm-generator.py:
+     a. Allocates VMID and IP from database
+     b. Reserves NFT token ID
+     c. Generates Terraform config with cloud-init
+     d. Runs terraform apply to create VM
+     e. Mints NFT to user with embedded signing page
+  6. VM boots with web3-only SSH authentication
+  7. User visits VM:8080 (signing page from NFT)
+  8. User signs with wallet → gets OTP
+  9. User SSHs to VM, enters OTP → authenticated
+
+# Integration notes for submodule consumers
+integration:
+  as_submodule:
+    description: |
+      When using blockhost-engine as a submodule, the consuming project
+      should set up the environment variables and call the monitor service.
+
+    setup_steps:
+      - Clone with submodules: git clone --recurse-submodules
+      - Install dependencies: npm install
+      - Configure environment: copy examples/env.example to .env
+      - Deploy contract: npm run deploy:sepolia
+      - Run init-server.sh on the hosting server
+      - Start monitor: npm run monitor
+
+  calling_vm_generator:
+    description: |
+      The monitor calls vm-generator.py from proxmox-terraform submodule.
+      Ensure proxmox-terraform is synced to the Proxmox host at /opt/blockhost/proxmox-terraform
