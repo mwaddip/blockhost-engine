@@ -79,9 +79,10 @@ pam_web3_tool generate-keypair --output /etc/pam_web3/server.key
 ```bash
 mkdir -p /opt/blockhost/src/monitor /opt/blockhost/src/handlers
 mkdir -p /opt/blockhost/terraform
-mkdir -p /opt/blockhost/proxmox-terraform
 mkdir -p /etc/blockhost
 mkdir -p /var/lib/blockhost
+
+# Note: proxmox-terraform is installed as a separate package to /opt/blockhost/proxmox-terraform
 ```
 
 ### 3. Copy Application Files
@@ -98,25 +99,20 @@ Copy the following files from the repository:
 │   │   └── index.ts          # Event polling monitor
 │   └── handlers/
 │       └── index.ts          # Event handlers
-├── terraform/                # Terraform working directory
-│   ├── provider.tf.json      # Proxmox provider config
-│   └── *.tf.json             # Generated VM configs
-└── proxmox-terraform/        # VM provisioning scripts (from submodule)
-    ├── scripts/
-    │   ├── vm-generator.py   # VM creation
-    │   ├── vm-gc.py          # Garbage collection
-    │   ├── vm_db.py          # Database abstraction
-    │   └── mint_nft.py       # NFT minting
-    ├── config/
-    │   ├── db.yaml           # Database/terraform config
-    │   └── web3-defaults.yaml # Blockchain/NFT config
-    ├── cloud-init/           # Cloud-init templates
-    └── accounting/           # Mock database for testing
+└── terraform/                # Terraform working directory
+    ├── provider.tf.json      # Proxmox provider config
+    └── *.tf.json             # Generated VM configs
 
-/etc/blockhost/               # Symlinks to configs
-├── db.yaml -> /opt/blockhost/proxmox-terraform/config/db.yaml
-├── web3.yaml -> /opt/blockhost/proxmox-terraform/config/web3-defaults.yaml
-├── monitor.env -> /opt/blockhost/.env
+# Provided by proxmox-terraform package:
+/opt/blockhost/proxmox-terraform/
+├── scripts/                  # VM provisioning scripts
+├── config/                   # Default configs
+└── cloud-init/               # Cloud-init templates
+
+/etc/blockhost/
+├── blockhost.yaml            # Server config (created by blockhost-init)
+├── web3-defaults.yaml        # Blockchain config (created by blockhost-init)
+├── server.key                # Server private key (chmod 600)
 └── deployer.key              # Deployer private key (chmod 600)
 
 /var/lib/blockhost/
@@ -287,14 +283,17 @@ npm install
 | `/opt/blockhost/src/monitor/index.ts` | Event polling monitor |
 | `/opt/blockhost/src/handlers/index.ts` | Event handlers |
 | `/opt/blockhost/terraform/` | Terraform working directory |
-| `/opt/blockhost/proxmox-terraform/scripts/` | VM provisioning scripts |
-| `/etc/blockhost/db.yaml` | Database/terraform configuration |
-| `/etc/blockhost/web3.yaml` | Blockchain/NFT configuration |
+| `/opt/blockhost/proxmox-terraform/` | VM provisioning (from proxmox-terraform package) |
+| `/etc/blockhost/blockhost.yaml` | Server configuration |
+| `/etc/blockhost/web3-defaults.yaml` | Blockchain/NFT configuration |
 | `/etc/blockhost/deployer.key` | Deployer private key |
 | `/var/lib/blockhost/vms.json` | VM database |
 | `/etc/systemd/system/blockhost-monitor.service` | Systemd service |
 
 ## VM Provisioning
+
+VM provisioning scripts are provided by the `proxmox-terraform` package.
+See that package's documentation for usage details.
 
 ### Initialize Terraform
 
@@ -303,23 +302,15 @@ cd /opt/blockhost/terraform
 terraform init
 ```
 
-### Test VM Generator (mock mode)
+### Manual VM Commands (for testing)
 
 ```bash
-cd /opt/blockhost/proxmox-terraform
-python3 scripts/vm-generator.py test-vm --owner-wallet 0x... --mock --skip-mint
-```
+# Test VM generator (mock mode)
+python3 /opt/blockhost/proxmox-terraform/scripts/vm-generator.py test-vm --owner-wallet 0x... --mock --skip-mint
 
-### Create a Real VM
+# Create a real VM
+python3 /opt/blockhost/proxmox-terraform/scripts/vm-generator.py myvm --owner-wallet 0x... --apply
 
-```bash
-cd /opt/blockhost/proxmox-terraform
-python3 scripts/vm-generator.py myvm --owner-wallet 0x... --apply
-```
-
-### Garbage Collect Expired VMs
-
-```bash
-cd /opt/blockhost/proxmox-terraform
-python3 scripts/vm-gc.py --execute --grace-days 3
+# Garbage collect expired VMs
+python3 /opt/blockhost/proxmox-terraform/scripts/vm-gc.py --execute --grace-days 3
 ```

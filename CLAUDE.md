@@ -10,17 +10,7 @@ blockhost-engine is the core component of a hosting subscription management syst
 2. **Monitor Server** (TypeScript) - Watches the smart contract for events and triggers actions
 3. **Maintenance Scheduler** - Manages subscription lifecycle (suspend/destroy expired subscriptions)
 
-VM provisioning scripts are provided by the `proxmox-terraform` submodule.
-
-## Important: Submodule Policy
-
-**NEVER edit files inside submodules** (e.g., `proxmox-terraform/`). These are managed in their own repositories.
-
-If changes to submodule code are necessary:
-1. Do NOT make the changes directly
-2. Notify the user that changes are needed in the submodule
-3. Describe what changes are required so they can be made in the actual repository
-4. After the submodule is updated upstream, run `git submodule update --remote` to pull changes
+VM provisioning is handled by the separate `proxmox-terraform` package, installed at `/opt/blockhost/proxmox-terraform/`.
 
 ## Build Commands
 
@@ -55,10 +45,6 @@ blockhost-engine/
 ├── src/                 # TypeScript server source
 │   ├── monitor/         # Contract event polling & processing
 │   └── handlers/        # Event handlers (calls proxmox-terraform scripts)
-├── proxmox-terraform/   # [SUBMODULE] VM provisioning scripts
-│   ├── scripts/         # vm-generator.py, vm-gc.py, etc.
-│   ├── config/          # db.yaml, web3-defaults.yaml
-│   └── cloud-init/      # VM templates
 └── examples/            # Deployment examples (systemd, env)
 ```
 

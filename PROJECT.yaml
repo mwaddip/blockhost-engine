@@ -58,24 +58,16 @@ components:
       Server initialization script. Generates server keypair for ECIES
       encryption, creates /etc/blockhost/blockhost.yaml config.
 
-# Submodule dependencies
-submodules:
+# External package dependencies
+dependencies:
   proxmox-terraform:
-    path: proxmox-terraform/
+    package: proxmox-terraform
+    install_path: /opt/blockhost/proxmox-terraform
     repository: github.com/mwaddip/proxmox-terraform
     description: |
       VM provisioning scripts for Proxmox. Creates VMs with cloud-init
       configured for NFT-based web3 SSH authentication.
-
-    key_scripts:
-      - name: vm-generator.py
-        purpose: Create VM and mint NFT with embedded signing page
-        args: ["vm-name", "--owner-wallet", "0x...", "--expiry-days", "N", "--apply"]
-      - name: vm-gc.py
-        purpose: Garbage collect expired VMs
-        args: ["--execute", "--grace-days", "N"]
-      - name: mint_nft.py
-        purpose: Mint NFT manually (usually called by vm-generator)
+      Installed as a separate .deb package.
 
 # Environment setup
 environment:
@@ -130,7 +122,8 @@ deployment:
   server:
     components:
       - blockhost-monitor (systemd service watching blockchain)
-      - proxmox-terraform scripts (in /opt/blockhost/proxmox-terraform)
+    requires:
+      - proxmox-terraform package (VM provisioning at /opt/blockhost/proxmox-terraform)
 
     config_files:
       - /etc/blockhost/blockhost.yaml (server keypair, decrypt message)
@@ -161,22 +154,17 @@ workflow: |
   8. User signs with wallet → gets OTP
   9. User SSHs to VM, enters OTP → authenticated
 
-# Integration notes for submodule consumers
+# Integration notes
 integration:
-  as_submodule:
-    description: |
-      When using blockhost-engine as a submodule, the consuming project
-      should set up the environment variables and call the monitor service.
+  setup_steps:
+    - Install proxmox-terraform package (provides VM provisioning scripts)
+    - Install blockhost-engine package
+    - Run blockhost-init to generate server keypair and config
+    - Deploy contract: npm run deploy:sepolia (or use deployed address)
+    - Fund deployer wallet with ETH for gas
+    - Start monitor: systemctl enable --now blockhost-monitor
 
-    setup_steps:
-      - Clone with submodules: git clone --recurse-submodules
-      - Install dependencies: npm install
-      - Configure environment: copy examples/env.example to .env
-      - Deploy contract: npm run deploy:sepolia
-      - Run init-server.sh on the hosting server
-      - Start monitor: npm run monitor
-
-  calling_vm_generator:
+  vm_provisioning:
     description: |
-      The monitor calls vm-generator.py from proxmox-terraform submodule.
-      Ensure proxmox-terraform is synced to the Proxmox host at /opt/blockhost/proxmox-terraform
+      The monitor calls vm-generator.py from the proxmox-terraform package.
+      Scripts are expected at /opt/blockhost/proxmox-terraform/scripts/

@@ -34,21 +34,21 @@ Blockchain-based VM hosting subscription system. Users purchase subscriptions on
 | `src/monitor/` | TypeScript | Blockchain event watcher |
 | `src/handlers/` | TypeScript | Event handlers calling VM provisioning |
 | `scripts/` | TS/Python/Bash | Deployment, signup page generation, server init |
-| `proxmox-terraform/` | Python | Submodule for VM provisioning |
 
 ## Prerequisites
 
 - Node.js 18+
 - Python 3.10+
 - Proxmox VE 8+ with Terraform
+- [proxmox-terraform](https://github.com/mwaddip/proxmox-terraform) for VM provisioning
 - [libpam-web3](https://github.com/mwaddip/libpam-web3) for VM authentication
 
 ## Quick Start
 
-### 1. Clone with submodules
+### 1. Clone and install
 
 ```bash
-git clone --recurse-submodules https://github.com/mwaddip/blockhost-engine.git
+git clone https://github.com/mwaddip/blockhost-engine.git
 cd blockhost-engine
 npm install
 ```
@@ -174,7 +174,6 @@ blockhost-engine/
 ├── examples/                  # Deployment examples
 │   ├── blockhost-monitor.service
 │   └── env.example
-├── proxmox-terraform/         # [Submodule] VM provisioning
 └── PROJECT.yaml               # Machine-readable spec
 ```
 
