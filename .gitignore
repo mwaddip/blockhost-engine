@@ -65,3 +65,7 @@ signup.html
 *.db
 *.sqlite
 vms.json
+
+# Packaging artifacts
+packaging/*.deb
+packaging/blockhost-engine_*/
