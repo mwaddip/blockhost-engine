@@ -69,3 +69,4 @@ vms.json
 # Packaging artifacts
 packaging/*.deb
 packaging/blockhost-engine_*/
+packaging/.forge-build/

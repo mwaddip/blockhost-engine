@@ -12,7 +12,80 @@ echo "Building blockhost-engine v${VERSION}..."
 
 # Clean and recreate package directory
 rm -rf "$PKG_DIR"
-mkdir -p "$PKG_DIR"/{DEBIAN,usr/bin,usr/share/blockhost,opt/blockhost/src/monitor,opt/blockhost/src/handlers,opt/blockhost/contracts/mocks,opt/blockhost/scripts,lib/systemd/system}
+mkdir -p "$PKG_DIR"/{DEBIAN,usr/bin,usr/share/blockhost/contracts,opt/blockhost/src/monitor,opt/blockhost/src/handlers,opt/blockhost/contracts/mocks,opt/blockhost/scripts,lib/systemd/system}
+
+# ============================================
+# Compile Solidity contracts with Foundry
+# ============================================
+echo "Compiling Solidity contracts..."
+
+FORGE_BUILD_DIR="$SCRIPT_DIR/.forge-build"
+COMPILED_ARTIFACT=""
+
+if command -v forge &> /dev/null; then
+    echo "Found forge: $(forge --version | head -1)"
+
+    # Create temporary forge project
+    rm -rf "$FORGE_BUILD_DIR"
+    mkdir -p "$FORGE_BUILD_DIR/src"
+
+    # Copy contract source
+    cp "$PROJECT_DIR/contracts/BlockhostSubscriptions.sol" "$FORGE_BUILD_DIR/src/"
+
+    # Create foundry.toml
+    cat > "$FORGE_BUILD_DIR/foundry.toml" << 'TOML'
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.20"
+optimizer = true
+optimizer_runs = 200
+TOML
+
+    # Install OpenZeppelin contracts dependency
+    echo "Installing OpenZeppelin contracts..."
+    (cd "$FORGE_BUILD_DIR" && forge install OpenZeppelin/openzeppelin-contracts --no-commit 2>/dev/null) || {
+        echo "Warning: Could not install OpenZeppelin via forge, trying alternative..."
+        mkdir -p "$FORGE_BUILD_DIR/lib"
+        git clone --depth 1 https://github.com/OpenZeppelin/openzeppelin-contracts "$FORGE_BUILD_DIR/lib/openzeppelin-contracts" 2>/dev/null || {
+            echo "Error: Could not install OpenZeppelin contracts"
+            exit 1
+        }
+    }
+
+    # Create remappings
+    echo "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/" > "$FORGE_BUILD_DIR/remappings.txt"
+
+    # Compile
+    echo "Running forge build..."
+    (cd "$FORGE_BUILD_DIR" && forge build) || {
+        echo "Error: forge build failed"
+        exit 1
+    }
+
+    # Check for compiled artifact
+    COMPILED_ARTIFACT="$FORGE_BUILD_DIR/out/BlockhostSubscriptions.sol/BlockhostSubscriptions.json"
+    if [ -f "$COMPILED_ARTIFACT" ]; then
+        echo "Contract compiled successfully: $COMPILED_ARTIFACT"
+        cp "$COMPILED_ARTIFACT" "$PKG_DIR/usr/share/blockhost/contracts/"
+        echo "Copied compiled artifact to package"
+    else
+        echo "Warning: Compiled artifact not found at expected path"
+        ls -la "$FORGE_BUILD_DIR/out/" 2>/dev/null || true
+    fi
+
+    # Cleanup forge build directory
+    rm -rf "$FORGE_BUILD_DIR"
+else
+    echo "WARNING: forge not found. Contract will not be pre-compiled."
+    echo "         Install Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup"
+    echo "         The contract source will still be included for manual compilation."
+fi
+
+# ============================================
+# Create DEBIAN control files
+# ============================================
 
 # Create DEBIAN/control
 cat > "$PKG_DIR/DEBIAN/control" << EOF
@@ -101,7 +174,9 @@ EOF
 
 chmod 755 "$PKG_DIR/DEBIAN/postinst" "$PKG_DIR/DEBIAN/prerm" "$PKG_DIR/DEBIAN/postrm"
 
-# Copy files
+# ============================================
+# Copy application files
+# ============================================
 echo "Copying files..."
 
 # Bin scripts
@@ -118,7 +193,7 @@ cp "$PROJECT_DIR/scripts/deploy.ts" "$PROJECT_DIR/scripts/create-plan.ts" "$PKG_
 cp "$PROJECT_DIR/examples/start.sh" "$PKG_DIR/opt/blockhost/"
 chmod 755 "$PKG_DIR/opt/blockhost/start.sh"
 
-# Contracts
+# Contract sources (for reference/recompilation)
 cp "$PROJECT_DIR/contracts/BlockhostSubscriptions.sol" "$PKG_DIR/opt/blockhost/contracts/"
 cp "$PROJECT_DIR/contracts/mocks/"*.sol "$PKG_DIR/opt/blockhost/contracts/mocks/"
 
@@ -135,10 +210,24 @@ SEPOLIA_RPC=https://ethereum-sepolia-rpc.publicnode.com
 BLOCKHOST_CONTRACT=0xYourContractAddressHere
 ENVEOF
 
+# ============================================
 # Build package
+# ============================================
 echo "Building package..."
 dpkg-deb --build "$PKG_DIR"
 
 echo ""
+echo "=========================================="
 echo "Package built: $SCRIPT_DIR/${PKG_NAME}.deb"
+echo "=========================================="
 dpkg-deb --info "$SCRIPT_DIR/${PKG_NAME}.deb"
+
+# Show contract compilation status
+if [ -f "$PKG_DIR/usr/share/blockhost/contracts/BlockhostSubscriptions.json" ]; then
+    echo ""
+    echo "Compiled contract included:"
+    echo "  /usr/share/blockhost/contracts/BlockhostSubscriptions.json"
+else
+    echo ""
+    echo "WARNING: Compiled contract NOT included (forge not available)"
+fi
