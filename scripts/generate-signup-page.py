@@ -5,18 +5,21 @@ Generate a static, self-contained signup page for Blockhost.
 This script creates a standalone HTML file that:
 - Connects to user's wallet (MetaMask, etc.)
 - Prompts user to sign the decrypt message
-- Encrypts the signature with the server's public key
+- Encrypts the signature with the server's public key using ECIES
 - Submits the buySubscription transaction
 
 Usage:
     python3 generate-signup-page.py [--output signup.html]
     python3 generate-signup-page.py --config /etc/blockhost/blockhost.yaml --output /var/www/signup.html
+    python3 generate-signup-page.py --serve 8080  # Serve on IPv4/IPv6 port 8080
 """
 
 import argparse
+import http.server
 import os
+import socket
+import socketserver
 import sys
-import urllib.request
 import yaml
 from pathlib import Path
 
@@ -25,9 +28,20 @@ DEFAULT_CONFIG = "/etc/blockhost/blockhost.yaml"
 DEFAULT_WEB3_CONFIG = "/etc/blockhost/web3-defaults.yaml"
 DEFAULT_OUTPUT = "signup.html"
 
-# Template location (relative to this script)
+# Template location - check multiple locations
 SCRIPT_DIR = Path(__file__).parent
-TEMPLATE_FILE = SCRIPT_DIR / "signup-template.html"
+TEMPLATE_LOCATIONS = [
+    SCRIPT_DIR / "signup-template.html",  # Development
+    Path("/usr/share/blockhost/signup-template.html"),  # Installed
+]
+
+
+def find_template() -> Path:
+    """Find the template file in known locations."""
+    for path in TEMPLATE_LOCATIONS:
+        if path.exists():
+            return path
+    return TEMPLATE_LOCATIONS[0]  # Return first for error message
 
 
 def load_config(config_path: str, web3_config_path: str) -> dict:
@@ -52,17 +66,6 @@ def load_config(config_path: str, web3_config_path: str) -> dict:
     return config
 
 
-def fetch_library(url: str, name: str) -> str:
-    """Fetch a JavaScript library from URL."""
-    print(f"Fetching {name}...")
-    try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            return response.read().decode('utf-8')
-    except Exception as e:
-        print(f"Error fetching {name}: {e}")
-        sys.exit(1)
-
-
 def generate_page(config: dict, template: str) -> str:
     """Generate the signup page by replacing placeholders."""
 
@@ -83,7 +86,7 @@ def generate_page(config: dict, template: str) -> str:
     primary_color = config.get('primary_color', '#6366f1')
 
     if not server_public_key:
-        print("Error: server_public_key not found in config. Run init-server.sh first.")
+        print("Error: server_public_key not found in config. Run blockhost-init first.")
         sys.exit(1)
 
     # Replace placeholders
@@ -106,6 +109,61 @@ def generate_page(config: dict, template: str) -> str:
     return result
 
 
+class DualStackHTTPServer(socketserver.TCPServer):
+    """HTTP server that listens on both IPv4 and IPv6."""
+    allow_reuse_address = True
+
+    def __init__(self, server_address, RequestHandlerClass):
+        # Try IPv6 first (dual-stack), fall back to IPv4
+        try:
+            self.address_family = socket.AF_INET6
+            # Enable dual-stack (IPv4 + IPv6) on Linux
+            super().__init__(server_address, RequestHandlerClass)
+            # Set IPV6_V6ONLY to False for dual-stack
+            self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        except (OSError, socket.error):
+            # Fall back to IPv4 only
+            self.address_family = socket.AF_INET
+            super().__init__(server_address, RequestHandlerClass)
+
+
+def serve_page(output_path: Path, port: int):
+    """Serve the generated page on IPv4 and IPv6."""
+    directory = output_path.parent
+    filename = output_path.name
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(directory), **kwargs)
+
+        def do_GET(self):
+            # Serve the generated file at root
+            if self.path == '/' or self.path == f'/{filename}':
+                self.path = f'/{filename}'
+            super().do_GET()
+
+    try:
+        # Try dual-stack (IPv6 + IPv4)
+        server = DualStackHTTPServer(('::', port), Handler)
+        print(f"Serving on:")
+        print(f"  http://localhost:{port}/")
+        print(f"  http://[::1]:{port}/")
+        print(f"  (and all network interfaces)")
+    except Exception as e:
+        print(f"Warning: Could not bind to IPv6, falling back to IPv4: {e}")
+        server = http.server.HTTPServer(('0.0.0.0', port), Handler)
+        print(f"Serving on http://0.0.0.0:{port}/")
+
+    print(f"\nServing: {output_path}")
+    print("Press Ctrl+C to stop\n")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        server.shutdown()
+
+
 def main():
     parser = argparse.ArgumentParser(description='Generate Blockhost signup page')
     parser.add_argument('--config', default=DEFAULT_CONFIG,
@@ -114,14 +172,19 @@ def main():
                         help=f'Path to web3-defaults.yaml (default: {DEFAULT_WEB3_CONFIG})')
     parser.add_argument('--output', '-o', default=DEFAULT_OUTPUT,
                         help=f'Output HTML file (default: {DEFAULT_OUTPUT})')
-    parser.add_argument('--template', default=str(TEMPLATE_FILE),
-                        help=f'Template HTML file (default: {TEMPLATE_FILE})')
+    parser.add_argument('--template',
+                        help=f'Template HTML file (default: auto-detect)')
+    parser.add_argument('--serve', type=int, metavar='PORT',
+                        help='Start HTTP server on PORT after generating (IPv4+IPv6)')
     args = parser.parse_args()
 
-    # Load template
-    template_path = Path(args.template)
+    # Find template
+    template_path = Path(args.template) if args.template else find_template()
     if not template_path.exists():
         print(f"Error: Template file not found: {template_path}")
+        print("Searched in:")
+        for loc in TEMPLATE_LOCATIONS:
+            print(f"  - {loc}")
         sys.exit(1)
 
     with open(template_path) as f:
@@ -134,7 +197,7 @@ def main():
     html = generate_page(config, template)
 
     # Write output
-    output_path = Path(args.output)
+    output_path = Path(args.output).resolve()
     with open(output_path, 'w') as f:
         f.write(html)
 
@@ -144,6 +207,11 @@ def main():
     print(f"  Decrypt message: {config.get('decrypt_message', 'NOT SET')}")
     print(f"  Chain ID: {blockchain.get('chain_id', config.get('chain_id', 'NOT SET'))}")
     print(f"  Subscription contract: {blockchain.get('subscription_contract', 'NOT SET')}")
+
+    # Start server if requested
+    if args.serve:
+        print()
+        serve_page(output_path, args.serve)
 
 
 if __name__ == '__main__':

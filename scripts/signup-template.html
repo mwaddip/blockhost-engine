@@ -175,16 +175,6 @@
         .tx-link:hover {
             text-decoration: underline;
         }
-        .message-box {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: monospace;
-            font-size: 0.875rem;
-            margin: 0.75rem 0;
-            word-break: break-all;
-        }
     </style>
 </head>
 <body>
@@ -209,17 +199,16 @@
             </div>
         </div>
 
-        <!-- Step 2: Sign Message -->
+        <!-- Step 2: Sign Message (hidden from user - automatic) -->
         <div class="card" id="step2">
             <div class="step">
                 <div class="step-number" id="step2-num">2</div>
                 <div class="step-content">
-                    <div class="step-title">Sign Authentication Message</div>
-                    <div class="step-desc">Sign this message to create your secure access key</div>
+                    <div class="step-title">Authenticate</div>
+                    <div class="step-desc">Sign a message to create your secure access credentials</div>
                 </div>
             </div>
-            <div class="message-box" id="sign-message">{{DECRYPT_MESSAGE}}</div>
-            <button id="btn-sign" disabled>Sign Message</button>
+            <button id="btn-sign" disabled>Sign Authentication</button>
             <div id="signature-status"></div>
         </div>
 
@@ -235,7 +224,7 @@
             <div class="form-group">
                 <label for="plan-select">Plan</label>
                 <select id="plan-select" disabled>
-                    <option value="1">Basic - $10/day</option>
+                    <option value="">Loading plans...</option>
                 </select>
             </div>
             <div class="form-group">
@@ -244,7 +233,7 @@
             </div>
             <div class="form-group">
                 <label>Total Cost</label>
-                <div id="total-cost" style="font-size: 1.25rem; font-weight: 600;">$300.00 USDC</div>
+                <div id="total-cost" style="font-size: 1.25rem; font-weight: 600;">-</div>
             </div>
             <button id="btn-purchase" disabled>Purchase Subscription</button>
             <div id="purchase-status"></div>
@@ -270,10 +259,14 @@
     <!-- Ethers.js from CDN (required for wallet interaction) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
 
-    <!-- Skip encryption for now - pass signature directly (server will handle) -->
-    <script>
-    // Simplified approach: just hex-encode the signature
-    // The server can implement decryption later if needed over HTTPS
+    <!-- Noble secp256k1 for ECIES encryption -->
+    <script type="module">
+    import { secp256k1 } from 'https://esm.run/@noble/curves@1.4.0/secp256k1';
+    import { hkdf } from 'https://esm.run/@noble/hashes@1.4.0/hkdf';
+    import { sha256 } from 'https://esm.run/@noble/hashes@1.4.0/sha256';
+    import { randomBytes } from 'https://esm.run/@noble/hashes@1.4.0/utils';
+
+    // ECIES encryption implementation using secp256k1
     window.ECIES = {
         hexToBytes(hex) {
             hex = hex.startsWith('0x') ? hex.slice(2) : hex;
@@ -288,14 +281,60 @@
             return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
         },
 
+        /**
+         * Encrypt plaintext using ECIES with secp256k1
+         * Format: ephemeralPubKey (65 bytes) || iv (12 bytes) || ciphertext || authTag (16 bytes)
+         * Compatible with pam_web3_tool decrypt
+         */
         async encrypt(publicKeyHex, plaintext) {
-            // For now, just encode the signature as hex
-            // TODO: Implement proper ECIES when served over HTTPS
+            // Parse server's public key (uncompressed format: 04 || x || y)
+            const serverPubKeyBytes = this.hexToBytes(publicKeyHex);
+
+            // Generate ephemeral keypair
+            const ephemeralPrivKey = randomBytes(32);
+            const ephemeralPubKey = secp256k1.getPublicKey(ephemeralPrivKey, false); // uncompressed
+
+            // Compute shared secret using ECDH
+            const sharedPoint = secp256k1.getSharedSecret(ephemeralPrivKey, serverPubKeyBytes, false);
+            // Use x-coordinate of shared point (skip the 04 prefix byte)
+            const sharedX = sharedPoint.slice(1, 33);
+
+            // Derive encryption key using HKDF-SHA256
+            const encryptionKey = hkdf(sha256, sharedX, new Uint8Array(0), new Uint8Array(0), 32);
+
+            // Generate random IV for AES-GCM
+            const iv = randomBytes(12);
+
+            // Encrypt with AES-256-GCM
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                encryptionKey,
+                { name: 'AES-GCM' },
+                false,
+                ['encrypt']
+            );
+
             const plaintextBytes = new TextEncoder().encode(plaintext);
-            return '0x' + this.bytesToHex(plaintextBytes);
+            const ciphertextWithTag = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: iv },
+                cryptoKey,
+                plaintextBytes
+            );
+
+            // Combine: ephemeralPubKey || iv || ciphertext+authTag
+            const result = new Uint8Array(
+                ephemeralPubKey.length + iv.length + ciphertextWithTag.byteLength
+            );
+            result.set(ephemeralPubKey, 0);
+            result.set(iv, ephemeralPubKey.length);
+            result.set(new Uint8Array(ciphertextWithTag), ephemeralPubKey.length + iv.length);
+
+            return '0x' + this.bytesToHex(result);
         }
     };
-    console.log('ECIES ready (passthrough mode)');
+
+    console.log('ECIES encryption ready');
+    window.dispatchEvent(new Event('ecies-ready'));
     </script>
 
     <script>
@@ -313,6 +352,7 @@
     const SUBSCRIPTION_ABI = [
         'function buySubscription(uint256 planId, uint256 days, uint256 paymentMethodId, bytes userEncrypted) external returns (uint256)',
         'function getPlan(uint256 planId) view returns (string name, uint256 pricePerDayUsdCents, bool active)',
+        'function getTotalPlanCount() view returns (uint256)',
         'function calculatePayment(uint256 planId, uint256 days, uint256 paymentMethodId) view returns (uint256)',
     ];
 
@@ -329,6 +369,7 @@
     let userAddress = null;
     let userSignature = null;
     let encryptedSignature = null;
+    let plans = []; // Loaded from contract
 
     // DOM Elements
     const btnConnect = document.getElementById('btn-connect');
@@ -361,6 +402,58 @@
             el.textContent = '!';
         } else {
             el.textContent = stepNum;
+        }
+    }
+
+    // Load plans from contract
+    async function loadPlans() {
+        if (!CONFIG.subscriptionContract) {
+            console.warn('Subscription contract not configured');
+            return;
+        }
+
+        try {
+            const readProvider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
+            const contract = new ethers.Contract(
+                CONFIG.subscriptionContract,
+                SUBSCRIPTION_ABI,
+                readProvider
+            );
+
+            const totalPlans = await contract.getTotalPlanCount();
+            console.log('Total plans:', totalPlans.toString());
+
+            plans = [];
+            planSelect.innerHTML = '';
+
+            for (let i = 1; i <= totalPlans; i++) {
+                try {
+                    const [name, pricePerDayUsdCents, active] = await contract.getPlan(i);
+                    if (active) {
+                        const pricePerDay = Number(pricePerDayUsdCents) / 100;
+                        plans.push({
+                            id: i,
+                            name: name,
+                            pricePerDay: pricePerDay
+                        });
+                        const option = document.createElement('option');
+                        option.value = i;
+                        option.textContent = `${name} - $${pricePerDay.toFixed(2)}/day`;
+                        planSelect.appendChild(option);
+                    }
+                } catch (e) {
+                    console.warn(`Error loading plan ${i}:`, e);
+                }
+            }
+
+            if (plans.length === 0) {
+                planSelect.innerHTML = '<option value="">No plans available</option>';
+            }
+
+            console.log('Loaded plans:', plans);
+        } catch (err) {
+            console.error('Error loading plans:', err);
+            planSelect.innerHTML = '<option value="">Error loading plans</option>';
         }
     }
 
@@ -417,16 +510,23 @@
             btnSign.disabled = true;
             btnSign.innerHTML = '<span class="spinner"></span>Waiting for signature...';
 
-            // Sign the message
+            // Wait for ECIES to be ready
+            if (!window.ECIES) {
+                await new Promise(resolve => {
+                    window.addEventListener('ecies-ready', resolve, { once: true });
+                });
+            }
+
+            // Sign the message (decryptMessage from config, hidden from user)
             userSignature = await signer.signMessage(CONFIG.decryptMessage);
-            console.log('Signature:', userSignature);
+            console.log('Signature obtained');
 
-            // For testing over HTTP, pass signature directly (no encryption)
-            // Production should use HTTPS + ECIES encryption
-            encryptedSignature = userSignature; // signature is already 0x-prefixed hex
-            console.log('Using signature directly (no encryption)');
+            // Encrypt the signature with server's public key using ECIES
+            showStatus(signatureStatus, 'Encrypting credentials...', 'info');
+            encryptedSignature = await window.ECIES.encrypt(CONFIG.serverPublicKey, userSignature);
+            console.log('Signature encrypted, length:', encryptedSignature.length);
 
-            showStatus(signatureStatus, 'Signature captured!', 'success');
+            showStatus(signatureStatus, 'Authentication complete!', 'success');
             updateStep(2, 'done');
 
             // Enable next step
@@ -436,19 +536,26 @@
             updateCost();
 
         } catch (err) {
+            console.error('Sign error:', err);
             showStatus(signatureStatus, err.message, 'error');
             updateStep(2, 'error');
             btnSign.disabled = false;
-            btnSign.textContent = 'Sign Message';
+            btnSign.textContent = 'Sign Authentication';
         }
     });
 
     // Update cost calculation
     async function updateCost() {
+        const planId = parseInt(planSelect.value);
         const days = parseInt(daysInput.value) || 30;
-        const pricePerDay = 10; // $10/day - TODO: fetch from contract
-        const total = days * pricePerDay;
-        totalCostEl.textContent = `$${total.toFixed(2)} USDC`;
+
+        const plan = plans.find(p => p.id === planId);
+        if (plan) {
+            const total = days * plan.pricePerDay;
+            totalCostEl.textContent = `$${total.toFixed(2)} USDC`;
+        } else {
+            totalCostEl.textContent = '-';
+        }
     }
 
     daysInput.addEventListener('input', updateCost);
@@ -465,6 +572,10 @@
 
             if (!CONFIG.subscriptionContract || !CONFIG.usdcAddress) {
                 throw new Error('Contract addresses not configured');
+            }
+
+            if (!planId || planId < 1) {
+                throw new Error('Please select a plan');
             }
 
             const subscriptionContract = new ethers.Contract(
@@ -527,6 +638,9 @@
     // Initialize
     console.log('Blockhost Signup Page loaded');
     console.log('Config:', { ...CONFIG, serverPublicKey: CONFIG.serverPublicKey.slice(0, 20) + '...' });
+
+    // Load plans on page load
+    loadPlans();
     </script>
 </body>
 </html>

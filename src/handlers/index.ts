@@ -5,13 +5,10 @@
 
 import { ethers } from "ethers";
 import { spawn, execSync } from "child_process";
-import * as path from "path";
-
 import * as fs from "fs";
 import * as yaml from "js-yaml";
 
-// Paths on the server (provided by blockhost-provisioner package)
-const SCRIPTS_DIR = "/usr/lib/blockhost-provisioner/scripts";
+// Paths on the server
 const WORKING_DIR = "/var/lib/blockhost";
 const SERVER_PRIVATE_KEY_FILE = "/etc/blockhost/server.key";
 const BLOCKHOST_CONFIG_FILE = "/etc/blockhost/blockhost.yaml";
@@ -110,11 +107,11 @@ function decryptUserSignature(userEncrypted: string): string | null {
 }
 
 /**
- * Run a Python script and return a promise
+ * Run a command and return a promise
  */
-function runScript(script: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
+function runCommand(command: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {
-    const proc = spawn("python3", [path.join(SCRIPTS_DIR, script), ...args], {
+    const proc = spawn(command, args, {
       cwd: WORKING_DIR,
     });
 
@@ -152,7 +149,7 @@ export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent,
   console.log(`Provisioning VM: ${vmName}`);
   console.log(`Expiry: ${expiryDays} days`);
 
-  // Build vm-generator.py arguments
+  // Build blockhost-vm-create arguments
   const args = [
     vmName,
     "--owner-wallet", event.subscriber,
@@ -175,8 +172,8 @@ export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent,
     }
   }
 
-  // Call vm-generator.py to create the VM
-  const result = await runScript("vm-generator.py", args);
+  // Call blockhost-vm-create (provided by blockhost-provisioner package)
+  const result = await runCommand("blockhost-vm-create", args);
 
   if (result.code === 0) {
     console.log(`[OK] VM ${vmName} provisioned successfully`);
