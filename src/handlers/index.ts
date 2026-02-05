@@ -207,15 +207,19 @@ export async function handleSubscriptionExtended(event: SubscriptionExtendedEven
   // Calculate additional days from current time to new expiry
   const additionalDays = calculateExpiryDays(event.newExpiresAt);
 
-  // Use Python to update the database directly (uses blockhost-common module)
+  // Use Python to update the database and check if VM needs to be resumed
+  // Returns "NEEDS_RESUME" if the VM was suspended and should be started
   const script = `
 from blockhost.vm_db import get_database
 
 db = get_database()
 vm = db.get_vm('${vmName}')
 if vm:
+    old_status = vm.get('status', 'unknown')
     db.extend_expiry('${vmName}', ${additionalDays})
     print(f"Extended {vm['vm_name']} expiry by ${additionalDays} days")
+    if old_status == 'suspended':
+        print("NEEDS_RESUME")
 else:
     print(f"VM ${vmName} not found in database")
 `;
@@ -226,16 +230,46 @@ else:
   proc.stdout.on("data", (data) => { output += data.toString(); });
   proc.stderr.on("data", (data) => { output += data.toString(); });
 
-  await new Promise<void>((resolve) => {
+  const needsResume = await new Promise<boolean>((resolve) => {
     proc.on("close", (code) => {
       if (code === 0) {
-        console.log(`[OK] ${output.trim()}`);
+        console.log(`[OK] ${output.trim().split('\n')[0]}`);
+        resolve(output.includes("NEEDS_RESUME"));
       } else {
         console.error(`[ERROR] Failed to extend expiry: ${output}`);
+        resolve(false);
       }
-      resolve();
     });
   });
+
+  // If VM was suspended, resume it
+  if (needsResume) {
+    console.log(`Resuming suspended VM: ${vmName}`);
+
+    const resumeProc = spawn("blockhost-vm-resume", [vmName], { cwd: WORKING_DIR });
+
+    let resumeOutput = "";
+    resumeProc.stdout.on("data", (data) => { resumeOutput += data.toString(); });
+    resumeProc.stderr.on("data", (data) => { resumeOutput += data.toString(); });
+
+    await new Promise<void>((resolve) => {
+      resumeProc.on("close", (code) => {
+        if (code === 0) {
+          console.log(`[OK] Successfully resumed VM: ${vmName}`);
+          if (resumeOutput.trim()) {
+            console.log(resumeOutput.trim());
+          }
+        } else {
+          // Don't fail the handler - subscription extension succeeded on-chain
+          // Operator can manually resume if needed
+          console.error(`[WARN] Failed to resume VM ${vmName} (exit code ${code})`);
+          console.error(`[WARN] ${resumeOutput.trim()}`);
+          console.error(`[WARN] Operator may need to manually resume the VM`);
+        }
+        resolve();
+      });
+    });
+  }
 
   console.log("===========================================\n");
 }
