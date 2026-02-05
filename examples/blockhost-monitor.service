@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/blockhost
-ExecStart=/opt/blockhost/start.sh
+EnvironmentFile=/opt/blockhost/.env
+ExecStart=/usr/bin/blockhost-monitor
 Restart=always
 RestartSec=10
 StandardOutput=journal

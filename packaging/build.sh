@@ -8,15 +8,57 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 PKG_DIR="$SCRIPT_DIR/$PKG_NAME"
 
+# Bun location (installed to ~/.bun/bin by default)
+BUN="${BUN:-$HOME/.bun/bin/bun}"
+
 echo "Building blockhost-engine v${VERSION}..."
+
+# Check for bun
+if ! command -v "$BUN" &> /dev/null && ! command -v bun &> /dev/null; then
+    echo "ERROR: bun not found. Install it with: curl -fsSL https://bun.sh/install | bash"
+    exit 1
+fi
+
+# Use bun from PATH if available
+if command -v bun &> /dev/null; then
+    BUN="bun"
+fi
+
+echo "Using bun: $BUN ($($BUN --version))"
 
 # Clean and recreate package directory
 rm -rf "$PKG_DIR"
-mkdir -p "$PKG_DIR"/{DEBIAN,usr/bin,usr/share/blockhost/contracts,opt/blockhost/src/monitor,opt/blockhost/src/handlers,opt/blockhost/contracts/mocks,opt/blockhost/scripts,lib/systemd/system}
+mkdir -p "$PKG_DIR"/{DEBIAN,usr/bin,usr/share/blockhost/contracts,opt/blockhost/scripts,opt/blockhost/contracts/mocks,lib/systemd/system}
+
+# ============================================
+# Bundle monitor with bun
+# ============================================
+echo ""
+echo "Bundling monitor with bun..."
+
+# Install dependencies first (needed for bundling)
+(cd "$PROJECT_DIR" && $BUN install)
+
+# Bundle the monitor into a standalone executable
+# --compile produces a single native binary with the JS runtime embedded
+$BUN build "$PROJECT_DIR/src/monitor/index.ts" \
+    --compile \
+    --outfile "$PKG_DIR/usr/bin/blockhost-monitor" \
+    --target bun-linux-x64
+
+# Verify the binary was created
+if [ ! -f "$PKG_DIR/usr/bin/blockhost-monitor" ]; then
+    echo "ERROR: Failed to create monitor binary"
+    exit 1
+fi
+
+MONITOR_SIZE=$(du -h "$PKG_DIR/usr/bin/blockhost-monitor" | cut -f1)
+echo "Monitor binary created: $MONITOR_SIZE"
 
 # ============================================
 # Compile Solidity contracts with Foundry
 # ============================================
+echo ""
 echo "Compiling Solidity contracts..."
 
 FORGE_BUILD_DIR="$SCRIPT_DIR/.forge-build"
@@ -86,26 +128,29 @@ fi
 # ============================================
 # Create DEBIAN control files
 # ============================================
+echo ""
+echo "Creating DEBIAN control files..."
 
 # Create DEBIAN/control
+# Note: Architecture is amd64 since we're compiling a native binary
 cat > "$PKG_DIR/DEBIAN/control" << EOF
 Package: blockhost-engine
 Version: ${VERSION}
 Section: admin
 Priority: optional
-Architecture: all
-Depends: blockhost-common (>= 0.1.0), libpam-web3-tools (>= 0.5.0), nodejs (>= 18), python3 (>= 3.10)
-Recommends: blockhost-provisioner (>= 0.1.0)
+Architecture: amd64
+Depends: blockhost-common (>= 0.1.0), libpam-web3-tools (>= 0.5.0), python3 (>= 3.10)
+Recommends: blockhost-provisioner (>= 0.1.0), nodejs (>= 18)
 Maintainer: Blockhost <admin@blockhost.io>
 Description: Blockchain-based VM hosting subscription engine
  Blockhost Engine provides the core subscription management system:
  - Smart contract deployment (BlockhostSubscriptions + AccessCredentialNFT)
- - Blockchain event monitor service
+ - Blockchain event monitor service (standalone binary)
  - Event handlers for VM provisioning
  - Server initialization and signup page generation
  .
- This package monitors blockchain events and triggers VM provisioning
- via the blockhost-provisioner package.
+ The monitor runs as a standalone binary - no Node.js required at runtime.
+ Node.js is only needed for initial contract deployment.
 EOF
 
 # Create DEBIAN/postinst
@@ -115,12 +160,6 @@ set -e
 
 case "$1" in
     configure)
-        echo "Installing Node.js dependencies..."
-        cd /opt/blockhost
-        npm install --production 2>/dev/null || npm install 2>/dev/null || {
-            echo "Warning: npm install failed. Run manually: cd /opt/blockhost && npm install"
-        }
-
         if [ -d /run/systemd/system ]; then
             systemctl daemon-reload || true
         fi
@@ -133,7 +172,8 @@ case "$1" in
         echo "Next steps:"
         echo "1. Run: sudo blockhost-init"
         echo "2. Fund the deployer wallet with ETH"
-        echo "3. Deploy contracts from /opt/blockhost"
+        echo "3. Deploy contracts (requires Node.js):"
+        echo "   cd /opt/blockhost && npm install && npx hardhat run scripts/deploy.ts --network sepolia"
         echo "4. Run: sudo systemctl enable --now blockhost-monitor"
         echo ""
         ;;
@@ -179,29 +219,41 @@ chmod 755 "$PKG_DIR/DEBIAN/postinst" "$PKG_DIR/DEBIAN/prerm" "$PKG_DIR/DEBIAN/po
 # ============================================
 echo "Copying files..."
 
-# Bin scripts
+# Bin scripts (init and signup generator)
 cp "$PROJECT_DIR/scripts/init-server.sh" "$PKG_DIR/usr/bin/blockhost-init"
 cp "$PROJECT_DIR/scripts/generate-signup-page.py" "$PKG_DIR/usr/bin/blockhost-generate-signup"
 chmod 755 "$PKG_DIR/usr/bin/"*
 
-# Application files
+# Deployment scripts (still need Hardhat/Node.js for one-time deployment)
 cp "$PROJECT_DIR/package.json" "$PROJECT_DIR/package-lock.json" "$PKG_DIR/opt/blockhost/"
 cp "$PROJECT_DIR/tsconfig.json" "$PROJECT_DIR/hardhat.config.ts" "$PKG_DIR/opt/blockhost/"
-cp "$PROJECT_DIR/src/monitor/index.ts" "$PKG_DIR/opt/blockhost/src/monitor/"
-cp "$PROJECT_DIR/src/handlers/index.ts" "$PKG_DIR/opt/blockhost/src/handlers/"
 cp "$PROJECT_DIR/scripts/deploy.ts" "$PROJECT_DIR/scripts/create-plan.ts" "$PKG_DIR/opt/blockhost/scripts/"
-cp "$PROJECT_DIR/examples/start.sh" "$PKG_DIR/opt/blockhost/"
-chmod 755 "$PKG_DIR/opt/blockhost/start.sh"
 
-# Contract sources (for reference/recompilation)
+# Contract sources (for deployment/reference)
 cp "$PROJECT_DIR/contracts/BlockhostSubscriptions.sol" "$PKG_DIR/opt/blockhost/contracts/"
 cp "$PROJECT_DIR/contracts/mocks/"*.sol "$PKG_DIR/opt/blockhost/contracts/mocks/"
 
 # Static resources
 cp "$PROJECT_DIR/scripts/signup-template.html" "$PKG_DIR/usr/share/blockhost/"
 
-# Systemd service
-cp "$PROJECT_DIR/examples/blockhost-monitor.service" "$PKG_DIR/lib/systemd/system/"
+# Systemd service (updated to use binary directly)
+cat > "$PKG_DIR/lib/systemd/system/blockhost-monitor.service" << 'EOF'
+[Unit]
+Description=Blockhost Subscriptions Event Monitor
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/blockhost/.env
+ExecStart=/usr/bin/blockhost-monitor
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
 
 # Example env
 cat > "$PKG_DIR/opt/blockhost/.env.example" << 'ENVEOF'
@@ -213,6 +265,7 @@ ENVEOF
 # ============================================
 # Build package
 # ============================================
+echo ""
 echo "Building package..."
 dpkg-deb --build "$PKG_DIR"
 
@@ -221,6 +274,16 @@ echo "=========================================="
 echo "Package built: $SCRIPT_DIR/${PKG_NAME}.deb"
 echo "=========================================="
 dpkg-deb --info "$SCRIPT_DIR/${PKG_NAME}.deb"
+
+# Show what's included
+echo ""
+echo "Package contents:"
+echo "  /usr/bin/blockhost-monitor     - Standalone monitor binary ($MONITOR_SIZE)"
+echo "  /usr/bin/blockhost-init        - Server initialization script"
+echo "  /usr/bin/blockhost-generate-signup - Signup page generator"
+echo "  /opt/blockhost/                - Deployment scripts (require npm install)"
+echo "  /usr/share/blockhost/          - Templates and compiled contracts"
+echo "  /lib/systemd/system/           - Systemd service unit"
 
 # Show contract compilation status
 if [ -f "$PKG_DIR/usr/share/blockhost/contracts/BlockhostSubscriptions.json" ]; then
