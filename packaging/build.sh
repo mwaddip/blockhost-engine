@@ -104,6 +104,12 @@ TOML
 
     # Cleanup forge build directory
     rm -rf "$FORGE_BUILD_DIR"
+
+    # Cleanup any forge artifacts that may have leaked into project directory
+    # (forge install can sometimes affect the parent git repo)
+    rm -f "$PROJECT_DIR/.gitmodules" 2>/dev/null || true
+    rm -rf "$PROJECT_DIR/contracts/lib" 2>/dev/null || true
+    rm -rf "$PROJECT_DIR/lib/forge-std" "$PROJECT_DIR/lib/openzeppelin-contracts" 2>/dev/null || true
 else
     echo "WARNING: forge not found. Contract will not be pre-compiled."
     echo "         Install Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup"
@@ -227,6 +233,7 @@ After=network.target
 
 [Service]
 Type=simple
+Environment=HOME=/root
 EnvironmentFile=/opt/blockhost/.env
 ExecStart=/usr/bin/node /usr/share/blockhost/monitor.js
 Restart=always
@@ -276,4 +283,14 @@ if [ -f "$PKG_DIR/usr/share/blockhost/contracts/BlockhostSubscriptions.json" ]; 
 else
     echo ""
     echo "WARNING: Compiled contract NOT included (forge not available)"
+fi
+
+# Copy to packages/host/ if the parent project structure exists
+# (for integration with blockhost-installer/scripts/build-packages.sh)
+PACKAGES_HOST_DIR="$(dirname "$PROJECT_DIR")/blockhost-installer/packages/host"
+if [ -d "$(dirname "$PACKAGES_HOST_DIR")" ]; then
+    mkdir -p "$PACKAGES_HOST_DIR"
+    cp "$SCRIPT_DIR/${PKG_NAME}.deb" "$PACKAGES_HOST_DIR/"
+    echo ""
+    echo "Copied to: $PACKAGES_HOST_DIR/${PKG_NAME}.deb"
 fi
