@@ -37,6 +37,10 @@
             margin-bottom: 0.5rem;
             text-align: center;
         }
+        h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
         .subtitle {
             color: var(--text-muted);
             text-align: center;
@@ -110,7 +114,12 @@
         .btn-secondary:hover:not(:disabled) {
             background: var(--border);
         }
-        input, select {
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            width: auto;
+        }
+        input, select, textarea {
             width: 100%;
             padding: 0.75rem;
             border: 1px solid var(--border);
@@ -120,7 +129,13 @@
             font-size: 1rem;
             margin-bottom: 0.75rem;
         }
-        input:focus, select:focus {
+        textarea {
+            font-family: monospace;
+            font-size: 0.875rem;
+            resize: vertical;
+            min-height: 80px;
+        }
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: var(--primary);
         }
@@ -174,6 +189,95 @@
         }
         .tx-link:hover {
             text-decoration: underline;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .tab {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .tab:hover:not(.active) {
+            background: var(--surface-hover);
+        }
+        .server-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+        }
+        .server-card:hover {
+            border-color: var(--primary);
+        }
+        .server-card.selected {
+            border-color: var(--primary);
+            background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+        }
+        .server-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .server-card-title {
+            font-weight: 600;
+        }
+        .server-card-id {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        .connection-info {
+            background: var(--bg);
+            border: 1px solid var(--success);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .code-block {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin-bottom: 0.75rem;
+        }
+        .divider {
+            border-top: 1px solid var(--border);
+            margin: 2rem 0;
+        }
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        .section-subtitle {
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
         }
     </style>
 </head>
@@ -254,6 +358,104 @@
                 <p style="margin-top: 0.75rem;">Your server will be ready shortly. You'll receive an NFT with your access credentials.</p>
             </div>
         </div>
+
+        <!-- Divider -->
+        <div class="divider"></div>
+
+        <!-- View My Servers Section -->
+        <div class="section-title">View My Servers</div>
+        <p class="section-subtitle">Decrypt your server connection details from your access NFT</p>
+
+        <div class="card" id="servers-card">
+            <div class="tabs">
+                <div class="tab active" id="tab-wallet" onclick="switchTab('wallet')">Use Wallet</div>
+                <div class="tab" id="tab-offline" onclick="switchTab('offline')">Offline Mode</div>
+            </div>
+
+            <!-- Wallet Mode -->
+            <div id="mode-wallet">
+                <div id="servers-not-connected">
+                    <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
+                        Connect your wallet above to view your servers
+                    </p>
+                </div>
+                <div id="servers-loading" class="hidden">
+                    <p><span class="spinner"></span>Loading your NFTs...</p>
+                </div>
+                <div id="servers-empty" class="hidden">
+                    <p style="color: var(--text-muted); font-size: 0.875rem;">
+                        No access NFTs found for your wallet. Purchase a subscription above to get started.
+                    </p>
+                </div>
+                <div id="servers-list" class="hidden"></div>
+                <div id="servers-decrypt" class="hidden">
+                    <button id="btn-decrypt-wallet">Sign to Decrypt Connection Info</button>
+                    <div id="decrypt-wallet-status"></div>
+                </div>
+                <div id="connection-result" class="hidden">
+                    <label>Connection Details</label>
+                    <div class="connection-info" id="connection-info"></div>
+                </div>
+            </div>
+
+            <!-- Offline/Paranoid Mode -->
+            <div id="mode-offline" class="hidden">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
+                    For users who prefer not to connect a browser wallet. Enter your token ID or wallet address to look up your NFT.
+                </p>
+
+                <div class="form-group">
+                    <label for="offline-lookup-type">Lookup by</label>
+                    <select id="offline-lookup-type">
+                        <option value="tokenId">Token ID</option>
+                        <option value="address">Wallet Address</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="offline-tokenid-group">
+                    <label for="offline-token-id">Token ID</label>
+                    <input type="number" id="offline-token-id" placeholder="e.g., 1" min="0">
+                </div>
+
+                <div class="form-group hidden" id="offline-address-group">
+                    <label for="offline-address">Wallet Address</label>
+                    <input type="text" id="offline-address" placeholder="0x...">
+                </div>
+
+                <button id="btn-lookup-nft" class="btn-secondary">Lookup NFT</button>
+                <div id="offline-lookup-status"></div>
+
+                <div id="offline-nft-info" class="hidden" style="margin-top: 1rem;">
+                    <div class="form-group">
+                        <label>Message to Sign</label>
+                        <div class="code-block" id="offline-decrypt-message"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Encrypted Data (hex)</label>
+                        <div class="code-block" id="offline-encrypted-data" style="max-height: 100px; overflow-y: auto;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>CLI Instructions</label>
+                        <div class="code-block" id="offline-cli-instructions"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="offline-signature">Paste Your Signature</label>
+                        <textarea id="offline-signature" placeholder="0x..."></textarea>
+                    </div>
+
+                    <button id="btn-decrypt-offline">Decrypt Connection Info</button>
+                    <div id="decrypt-offline-status"></div>
+
+                    <div id="offline-connection-result" class="hidden" style="margin-top: 1rem;">
+                        <label>Connection Details</label>
+                        <div class="connection-info" id="offline-connection-info"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Ethers.js from CDN (required for wallet interaction) -->
@@ -281,54 +483,21 @@
             return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
         },
 
-        /**
-         * Encrypt plaintext using ECIES with secp256k1
-         * Format: ephemeralPubKey (65 bytes) || iv (12 bytes) || ciphertext || authTag (16 bytes)
-         * Compatible with pam_web3_tool decrypt
-         */
         async encrypt(publicKeyHex, plaintext) {
-            // Parse server's public key (uncompressed format: 04 || x || y)
             const serverPubKeyBytes = this.hexToBytes(publicKeyHex);
-
-            // Generate ephemeral keypair
             const ephemeralPrivKey = randomBytes(32);
-            const ephemeralPubKey = secp256k1.getPublicKey(ephemeralPrivKey, false); // uncompressed
-
-            // Compute shared secret using ECDH
+            const ephemeralPubKey = secp256k1.getPublicKey(ephemeralPrivKey, false);
             const sharedPoint = secp256k1.getSharedSecret(ephemeralPrivKey, serverPubKeyBytes, false);
-            // Use x-coordinate of shared point (skip the 04 prefix byte)
             const sharedX = sharedPoint.slice(1, 33);
-
-            // Derive encryption key using HKDF-SHA256
             const encryptionKey = hkdf(sha256, sharedX, new Uint8Array(0), new Uint8Array(0), 32);
-
-            // Generate random IV for AES-GCM
             const iv = randomBytes(12);
-
-            // Encrypt with AES-256-GCM
-            const cryptoKey = await crypto.subtle.importKey(
-                'raw',
-                encryptionKey,
-                { name: 'AES-GCM' },
-                false,
-                ['encrypt']
-            );
-
+            const cryptoKey = await crypto.subtle.importKey('raw', encryptionKey, { name: 'AES-GCM' }, false, ['encrypt']);
             const plaintextBytes = new TextEncoder().encode(plaintext);
-            const ciphertextWithTag = await crypto.subtle.encrypt(
-                { name: 'AES-GCM', iv: iv },
-                cryptoKey,
-                plaintextBytes
-            );
-
-            // Combine: ephemeralPubKey || iv || ciphertext+authTag
-            const result = new Uint8Array(
-                ephemeralPubKey.length + iv.length + ciphertextWithTag.byteLength
-            );
+            const ciphertextWithTag = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, cryptoKey, plaintextBytes);
+            const result = new Uint8Array(ephemeralPubKey.length + iv.length + ciphertextWithTag.byteLength);
             result.set(ephemeralPubKey, 0);
             result.set(iv, ephemeralPubKey.length);
             result.set(new Uint8Array(ciphertextWithTag), ephemeralPubKey.length + iv.length);
-
             return '0x' + this.bytesToHex(result);
         }
     };
@@ -344,6 +513,7 @@
         decryptMessage: '{{DECRYPT_MESSAGE}}',
         chainId: {{CHAIN_ID}},
         rpcUrl: '{{RPC_URL}}',
+        nftContract: '{{NFT_CONTRACT}}',
         subscriptionContract: '{{SUBSCRIPTION_CONTRACT}}',
         usdcAddress: '{{USDC_ADDRESS}}',
     };
@@ -363,15 +533,94 @@
         'function decimals() view returns (uint8)',
     ];
 
+    const NFT_ABI = [
+        'function balanceOf(address owner) view returns (uint256)',
+        'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+        'function tokenURI(uint256 tokenId) view returns (string)',
+        'function ownerOf(uint256 tokenId) view returns (address)',
+    ];
+
+    // Keccak256 implementation (for deriving decryption key from signature)
+    function keccak256(input) {
+        const RC = [1n, 0x8082n, 0x800000000000808an, 0x8000000080008000n, 0x808bn, 0x80000001n,
+            0x8000000080008081n, 0x8000000000008009n, 0x8an, 0x88n, 0x80008009n, 0x8000000an,
+            0x8000808bn, 0x800000000000008bn, 0x8000000000008089n, 0x8000000000008003n,
+            0x8000000000008002n, 0x8000000000000080n, 0x800an, 0x800000008000000an,
+            0x8000000080008081n, 0x8000000000008080n, 0x80000001n, 0x8000000080008008n];
+        const ROTC = [1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62, 18, 39, 61, 20, 44];
+        const PI = [10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1];
+        const rotl = (x, n) => ((x << BigInt(n)) | (x >> BigInt(64 - n))) & 0xffffffffffffffffn;
+
+        function keccakF(s) {
+            for (let r = 0; r < 24; r++) {
+                let c = [0n, 0n, 0n, 0n, 0n];
+                for (let x = 0; x < 5; x++) c[x] = s[x] ^ s[x + 5] ^ s[x + 10] ^ s[x + 15] ^ s[x + 20];
+                for (let x = 0; x < 5; x++) { let t = c[(x + 4) % 5] ^ rotl(c[(x + 1) % 5], 1); for (let y = 0; y < 25; y += 5) s[x + y] ^= t; }
+                let t = s[1]; for (let i = 0; i < 24; i++) { let j = PI[i]; let tmp = s[j]; s[j] = rotl(t, ROTC[i]); t = tmp; }
+                for (let y = 0; y < 25; y += 5) { let t0 = s[y], t1 = s[y + 1]; s[y] ^= (~t1) & s[y + 2]; s[y + 1] ^= (~s[y + 2]) & s[y + 3]; s[y + 2] ^= (~s[y + 3]) & s[y + 4]; s[y + 3] ^= (~s[y + 4]) & t0; s[y + 4] ^= (~t0) & t1; }
+                s[0] ^= RC[r];
+            }
+        }
+
+        let msg;
+        if (input.startsWith('0x')) {
+            input = input.slice(2);
+            msg = new Uint8Array(input.length / 2);
+            for (let i = 0; i < input.length; i += 2) msg[i / 2] = parseInt(input.substr(i, 2), 16);
+        } else {
+            msg = new TextEncoder().encode(input);
+        }
+
+        const rate = 136;
+        let padded = new Uint8Array(Math.ceil((msg.length + 1) / rate) * rate);
+        padded.set(msg);
+        padded[msg.length] = 0x01;
+        padded[padded.length - 1] |= 0x80;
+
+        let s = new Array(25).fill(0n);
+        for (let i = 0; i < padded.length; i += rate) {
+            for (let j = 0; j < rate / 8; j++) {
+                let v = 0n;
+                for (let k = 0; k < 8; k++) v |= BigInt(padded[i + j * 8 + k]) << BigInt(k * 8);
+                s[j] ^= v;
+            }
+            keccakF(s);
+        }
+
+        let out = new Uint8Array(32);
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 8; j++) {
+                out[i * 8 + j] = Number((s[i] >> BigInt(j * 8)) & 0xffn);
+            }
+        }
+        return out;
+    }
+
+    // AES-GCM decryption
+    async function decryptAesGcm(keyBytes, ciphertextHex) {
+        ciphertextHex = ciphertextHex.replace(/^0x/, '');
+        const data = new Uint8Array(ciphertextHex.length / 2);
+        for (let i = 0; i < ciphertextHex.length; i += 2) data[i / 2] = parseInt(ciphertextHex.substr(i, 2), 16);
+
+        const nonce = data.slice(0, 12);
+        const ciphertext = data.slice(12);
+
+        const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['decrypt']);
+        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ciphertext);
+        return new TextDecoder().decode(decrypted);
+    }
+
     // State
     let provider = null;
     let signer = null;
     let userAddress = null;
     let userSignature = null;
     let encryptedSignature = null;
-    let plans = []; // Loaded from contract
+    let plans = [];
+    let userNfts = [];
+    let selectedNft = null;
 
-    // DOM Elements
+    // DOM Elements - Purchase flow
     const btnConnect = document.getElementById('btn-connect');
     const btnSign = document.getElementById('btn-sign');
     const btnPurchase = document.getElementById('btn-purchase');
@@ -405,6 +654,20 @@
         }
     }
 
+    // Tab switching for View My Servers
+    window.switchTab = function(tab) {
+        document.getElementById('tab-wallet').classList.toggle('active', tab === 'wallet');
+        document.getElementById('tab-offline').classList.toggle('active', tab === 'offline');
+        document.getElementById('mode-wallet').classList.toggle('hidden', tab !== 'wallet');
+        document.getElementById('mode-offline').classList.toggle('hidden', tab !== 'offline');
+    };
+
+    // Offline lookup type change
+    document.getElementById('offline-lookup-type').addEventListener('change', (e) => {
+        document.getElementById('offline-tokenid-group').classList.toggle('hidden', e.target.value !== 'tokenId');
+        document.getElementById('offline-address-group').classList.toggle('hidden', e.target.value !== 'address');
+    });
+
     // Load plans from contract
     async function loadPlans() {
         if (!CONFIG.subscriptionContract) {
@@ -414,12 +677,7 @@
 
         try {
             const readProvider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
-            const contract = new ethers.Contract(
-                CONFIG.subscriptionContract,
-                SUBSCRIPTION_ABI,
-                readProvider
-            );
-
+            const contract = new ethers.Contract(CONFIG.subscriptionContract, SUBSCRIPTION_ABI, readProvider);
             const totalPlans = await contract.getTotalPlanCount();
             console.log('Total plans:', totalPlans.toString());
 
@@ -431,11 +689,7 @@
                     const [name, pricePerDayUsdCents, active] = await contract.getPlan(i);
                     if (active) {
                         const pricePerDay = Number(pricePerDayUsdCents) / 100;
-                        plans.push({
-                            id: i,
-                            name: name,
-                            pricePerDay: pricePerDay
-                        });
+                        plans.push({ id: i, name: name, pricePerDay: pricePerDay });
                         const option = document.createElement('option');
                         option.value = i;
                         option.textContent = `${name} - $${pricePerDay.toFixed(2)}/day`;
@@ -449,13 +703,258 @@
             if (plans.length === 0) {
                 planSelect.innerHTML = '<option value="">No plans available</option>';
             }
-
-            console.log('Loaded plans:', plans);
         } catch (err) {
             console.error('Error loading plans:', err);
             planSelect.innerHTML = '<option value="">Error loading plans</option>';
         }
     }
+
+    // Load user's NFTs
+    async function loadUserNfts() {
+        if (!CONFIG.nftContract || !userAddress) {
+            console.warn('NFT contract not configured or wallet not connected');
+            return;
+        }
+
+        document.getElementById('servers-not-connected').classList.add('hidden');
+        document.getElementById('servers-loading').classList.remove('hidden');
+        document.getElementById('servers-list').classList.add('hidden');
+        document.getElementById('servers-empty').classList.add('hidden');
+        document.getElementById('servers-decrypt').classList.add('hidden');
+        document.getElementById('connection-result').classList.add('hidden');
+
+        try {
+            const readProvider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
+            const nftContract = new ethers.Contract(CONFIG.nftContract, NFT_ABI, readProvider);
+
+            const balance = await nftContract.balanceOf(userAddress);
+            console.log('NFT balance:', balance.toString());
+
+            userNfts = [];
+            for (let i = 0; i < balance; i++) {
+                try {
+                    const tokenId = await nftContract.tokenOfOwnerByIndex(userAddress, i);
+                    const tokenURI = await nftContract.tokenURI(tokenId);
+                    const metadata = await fetchTokenMetadata(tokenURI);
+                    userNfts.push({ tokenId: tokenId.toString(), metadata });
+                } catch (e) {
+                    console.warn(`Error loading token at index ${i}:`, e);
+                }
+            }
+
+            document.getElementById('servers-loading').classList.add('hidden');
+
+            if (userNfts.length === 0) {
+                document.getElementById('servers-empty').classList.remove('hidden');
+            } else {
+                renderNftList();
+                document.getElementById('servers-list').classList.remove('hidden');
+            }
+        } catch (err) {
+            console.error('Error loading NFTs:', err);
+            document.getElementById('servers-loading').classList.add('hidden');
+            document.getElementById('servers-empty').classList.remove('hidden');
+        }
+    }
+
+    // Fetch token metadata from URI
+    async function fetchTokenMetadata(tokenURI) {
+        try {
+            // Handle data URIs
+            if (tokenURI.startsWith('data:application/json')) {
+                const json = tokenURI.replace('data:application/json;base64,', '');
+                return JSON.parse(atob(json));
+            }
+            // Handle IPFS
+            if (tokenURI.startsWith('ipfs://')) {
+                tokenURI = tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+            }
+            const response = await fetch(tokenURI);
+            return await response.json();
+        } catch (e) {
+            console.error('Error fetching metadata:', e);
+            return { name: 'Unknown', description: 'Could not load metadata' };
+        }
+    }
+
+    // Render NFT list
+    function renderNftList() {
+        const container = document.getElementById('servers-list');
+        container.innerHTML = '';
+
+        userNfts.forEach((nft, index) => {
+            const card = document.createElement('div');
+            card.className = 'server-card' + (index === 0 ? ' selected' : '');
+            card.innerHTML = `
+                <div class="server-card-header">
+                    <span class="server-card-title">${nft.metadata.name || 'Server'}</span>
+                    <span class="server-card-id">Token #${nft.tokenId}</span>
+                </div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;">
+                    ${nft.metadata.description || ''}
+                </div>
+            `;
+            card.onclick = () => selectNft(index);
+            container.appendChild(card);
+        });
+
+        if (userNfts.length > 0) {
+            selectNft(0);
+        }
+    }
+
+    // Select an NFT
+    function selectNft(index) {
+        selectedNft = userNfts[index];
+        document.querySelectorAll('.server-card').forEach((card, i) => {
+            card.classList.toggle('selected', i === index);
+        });
+        document.getElementById('servers-decrypt').classList.remove('hidden');
+        document.getElementById('connection-result').classList.add('hidden');
+        document.getElementById('decrypt-wallet-status').innerHTML = '';
+    }
+
+    // Decrypt NFT connection info (wallet mode)
+    document.getElementById('btn-decrypt-wallet').addEventListener('click', async () => {
+        if (!selectedNft || !signer) return;
+
+        const btn = document.getElementById('btn-decrypt-wallet');
+        const statusEl = document.getElementById('decrypt-wallet-status');
+
+        try {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Signing...';
+
+            // Get decrypt message from NFT metadata
+            const decryptMessage = selectedNft.metadata.decryptMessage || selectedNft.metadata.decrypt_message || CONFIG.decryptMessage;
+            const userEncrypted = selectedNft.metadata.userEncrypted || selectedNft.metadata.user_encrypted;
+
+            if (!userEncrypted) {
+                throw new Error('No encrypted data found in NFT metadata');
+            }
+
+            // Sign the decrypt message
+            const signature = await signer.signMessage(decryptMessage);
+
+            // Derive key from signature
+            showStatus(statusEl, 'Decrypting...', 'info');
+            const keyBytes = keccak256(signature);
+
+            // Decrypt
+            const decrypted = await decryptAesGcm(keyBytes, userEncrypted);
+
+            // Show result
+            document.getElementById('connection-info').textContent = decrypted;
+            document.getElementById('connection-result').classList.remove('hidden');
+            statusEl.innerHTML = '';
+
+        } catch (err) {
+            console.error('Decrypt error:', err);
+            showStatus(statusEl, err.message || 'Decryption failed', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sign to Decrypt Connection Info';
+        }
+    });
+
+    // Lookup NFT (offline mode)
+    document.getElementById('btn-lookup-nft').addEventListener('click', async () => {
+        const lookupType = document.getElementById('offline-lookup-type').value;
+        const statusEl = document.getElementById('offline-lookup-status');
+
+        if (!CONFIG.nftContract) {
+            showStatus(statusEl, 'NFT contract not configured', 'error');
+            return;
+        }
+
+        try {
+            const readProvider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
+            const nftContract = new ethers.Contract(CONFIG.nftContract, NFT_ABI, readProvider);
+
+            let tokenId;
+            if (lookupType === 'tokenId') {
+                tokenId = document.getElementById('offline-token-id').value;
+                if (!tokenId) {
+                    throw new Error('Please enter a token ID');
+                }
+            } else {
+                const address = document.getElementById('offline-address').value;
+                if (!address || !ethers.isAddress(address)) {
+                    throw new Error('Please enter a valid wallet address');
+                }
+                const balance = await nftContract.balanceOf(address);
+                if (balance === 0n) {
+                    throw new Error('No NFTs found for this address');
+                }
+                tokenId = await nftContract.tokenOfOwnerByIndex(address, 0);
+            }
+
+            showStatus(statusEl, 'Loading NFT metadata...', 'info');
+
+            const tokenURI = await nftContract.tokenURI(tokenId);
+            const metadata = await fetchTokenMetadata(tokenURI);
+
+            const decryptMessage = metadata.decryptMessage || metadata.decrypt_message || CONFIG.decryptMessage;
+            const userEncrypted = metadata.userEncrypted || metadata.user_encrypted;
+
+            if (!userEncrypted) {
+                throw new Error('No encrypted data found in NFT metadata');
+            }
+
+            // Display info for offline signing
+            document.getElementById('offline-decrypt-message').textContent = decryptMessage;
+            document.getElementById('offline-encrypted-data').textContent = userEncrypted;
+            document.getElementById('offline-cli-instructions').textContent =
+`# Sign with cast (Foundry)
+cast wallet sign "${decryptMessage}" --private-key YOUR_PRIVATE_KEY
+
+# Or with ethers.js
+const wallet = new ethers.Wallet('YOUR_PRIVATE_KEY');
+console.log(await wallet.signMessage('${decryptMessage}'));`;
+
+            document.getElementById('offline-nft-info').classList.remove('hidden');
+            document.getElementById('offline-connection-result').classList.add('hidden');
+            statusEl.innerHTML = '';
+
+            // Store for later decryption
+            window.offlineNftData = { decryptMessage, userEncrypted };
+
+        } catch (err) {
+            console.error('Lookup error:', err);
+            showStatus(statusEl, err.message || 'Lookup failed', 'error');
+        }
+    });
+
+    // Decrypt (offline mode)
+    document.getElementById('btn-decrypt-offline').addEventListener('click', async () => {
+        const statusEl = document.getElementById('decrypt-offline-status');
+        const signature = document.getElementById('offline-signature').value.trim();
+
+        if (!signature) {
+            showStatus(statusEl, 'Please paste your signature', 'error');
+            return;
+        }
+
+        if (!window.offlineNftData) {
+            showStatus(statusEl, 'Please lookup an NFT first', 'error');
+            return;
+        }
+
+        try {
+            showStatus(statusEl, 'Decrypting...', 'info');
+
+            const keyBytes = keccak256(signature);
+            const decrypted = await decryptAesGcm(keyBytes, window.offlineNftData.userEncrypted);
+
+            document.getElementById('offline-connection-info').textContent = decrypted;
+            document.getElementById('offline-connection-result').classList.remove('hidden');
+            statusEl.innerHTML = '';
+
+        } catch (err) {
+            console.error('Decrypt error:', err);
+            showStatus(statusEl, 'Decryption failed. Make sure you signed the correct message with the correct key.', 'error');
+        }
+    });
 
     // Step 1: Connect Wallet
     btnConnect.addEventListener('click', async () => {
@@ -468,11 +967,10 @@
             }
 
             provider = new ethers.BrowserProvider(window.ethereum);
-            const accounts = await provider.send('eth_requestAccounts', []);
+            await provider.send('eth_requestAccounts', []);
             signer = await provider.getSigner();
             userAddress = await signer.getAddress();
 
-            // Check network
             const network = await provider.getNetwork();
             if (Number(network.chainId) !== CONFIG.chainId) {
                 try {
@@ -487,14 +985,14 @@
                 }
             }
 
-            // Update UI
             walletNotConnected.classList.add('hidden');
             walletConnected.classList.remove('hidden');
             walletAddressEl.textContent = userAddress;
             updateStep(1, 'done');
-
-            // Enable next step
             btnSign.disabled = false;
+
+            // Load user's NFTs for View My Servers
+            loadUserNfts();
 
         } catch (err) {
             showStatus(signatureStatus, err.message, 'error');
@@ -510,26 +1008,19 @@
             btnSign.disabled = true;
             btnSign.innerHTML = '<span class="spinner"></span>Waiting for signature...';
 
-            // Wait for ECIES to be ready
             if (!window.ECIES) {
                 await new Promise(resolve => {
                     window.addEventListener('ecies-ready', resolve, { once: true });
                 });
             }
 
-            // Sign the message (decryptMessage from config, hidden from user)
             userSignature = await signer.signMessage(CONFIG.decryptMessage);
-            console.log('Signature obtained');
-
-            // Encrypt the signature with server's public key using ECIES
             showStatus(signatureStatus, 'Encrypting credentials...', 'info');
             encryptedSignature = await window.ECIES.encrypt(CONFIG.serverPublicKey, userSignature);
-            console.log('Signature encrypted, length:', encryptedSignature.length);
 
             showStatus(signatureStatus, 'Authentication complete!', 'success');
             updateStep(2, 'done');
 
-            // Enable next step
             planSelect.disabled = false;
             daysInput.disabled = false;
             btnPurchase.disabled = false;
@@ -548,7 +1039,6 @@
     async function updateCost() {
         const planId = parseInt(planSelect.value);
         const days = parseInt(daysInput.value) || 30;
-
         const plan = plans.find(p => p.id === planId);
         if (plan) {
             const total = days * plan.pricePerDay;
@@ -578,26 +1068,17 @@
                 throw new Error('Please select a plan');
             }
 
-            const subscriptionContract = new ethers.Contract(
-                CONFIG.subscriptionContract,
-                SUBSCRIPTION_ABI,
-                signer
-            );
-
+            const subscriptionContract = new ethers.Contract(CONFIG.subscriptionContract, SUBSCRIPTION_ABI, signer);
             const usdc = new ethers.Contract(CONFIG.usdcAddress, ERC20_ABI, signer);
 
-            // Calculate payment
             showStatus(purchaseStatus, 'Calculating payment...', 'info');
             const paymentAmount = await subscriptionContract.calculatePayment(planId, days, 1);
-            console.log('Payment amount:', ethers.formatUnits(paymentAmount, 6), 'USDC');
 
-            // Check balance
             const balance = await usdc.balanceOf(userAddress);
             if (balance < paymentAmount) {
                 throw new Error(`Insufficient USDC balance. Need ${ethers.formatUnits(paymentAmount, 6)} USDC`);
             }
 
-            // Check/set allowance
             const allowance = await usdc.allowance(userAddress, CONFIG.subscriptionContract);
             if (allowance < paymentAmount) {
                 showStatus(purchaseStatus, 'Approving USDC spend...', 'info');
@@ -605,19 +1086,12 @@
                 await approveTx.wait();
             }
 
-            // Buy subscription with encrypted signature
             showStatus(purchaseStatus, 'Confirm transaction in wallet...', 'info');
-            const tx = await subscriptionContract.buySubscription(
-                planId,
-                days,
-                1, // USDC payment method
-                encryptedSignature
-            );
+            const tx = await subscriptionContract.buySubscription(planId, days, 1, encryptedSignature);
 
             showStatus(purchaseStatus, 'Transaction submitted, waiting for confirmation...', 'info');
             const receipt = await tx.wait();
 
-            // Show success
             updateStep(3, 'done');
             document.getElementById('step3').classList.add('hidden');
             resultCard.classList.remove('hidden');
@@ -637,9 +1111,11 @@
 
     // Initialize
     console.log('Blockhost Signup Page loaded');
-    console.log('Config:', { ...CONFIG, serverPublicKey: CONFIG.serverPublicKey.slice(0, 20) + '...' });
+    console.log('Config:', {
+        ...CONFIG,
+        serverPublicKey: CONFIG.serverPublicKey ? CONFIG.serverPublicKey.slice(0, 20) + '...' : 'NOT SET'
+    });
 
-    // Load plans on page load
     loadPlans();
     </script>
 </body>
