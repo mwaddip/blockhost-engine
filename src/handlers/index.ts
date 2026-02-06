@@ -13,13 +13,13 @@ const WORKING_DIR = "/var/lib/blockhost";
 const SERVER_PRIVATE_KEY_FILE = "/etc/blockhost/server.key";
 const BLOCKHOST_CONFIG_FILE = "/etc/blockhost/blockhost.yaml";
 
-// Load static decryptMessage from config (same for all users)
-function getDecryptMessage(): string {
+// Load static publicSecret from config (same for all users)
+function getPublicSecret(): string {
   try {
     const config = yaml.load(fs.readFileSync(BLOCKHOST_CONFIG_FILE, "utf8")) as Record<string, unknown>;
-    return (config.decrypt_message as string) || "blockhost-access";
+    return (config.public_secret as string) || "blockhost-access";
   } catch (err) {
-    console.warn(`[WARN] Could not load config, using default decrypt_message`);
+    console.warn(`[WARN] Could not load config, using default public_secret`);
     return "blockhost-access";
   }
 }
@@ -164,9 +164,9 @@ export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent,
     if (userSignature) {
       console.log("User signature decrypted successfully");
       args.push("--user-signature", userSignature);
-      // Use static decryptMessage from config (same for all users)
-      const decryptMessage = getDecryptMessage();
-      args.push("--decrypt-message", decryptMessage);
+      // Use static publicSecret from config (same for all users)
+      const publicSecret = getPublicSecret();
+      args.push("--public-secret", publicSecret);
     } else {
       console.warn("[WARN] Could not decrypt user signature, proceeding without encrypted connection details");
     }

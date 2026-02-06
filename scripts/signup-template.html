@@ -428,7 +428,7 @@
                 <div id="offline-nft-info" class="hidden" style="margin-top: 1rem;">
                     <div class="form-group">
                         <label>Message to Sign</label>
-                        <div class="code-block" id="offline-decrypt-message"></div>
+                        <div class="code-block" id="offline-public-secret"></div>
                     </div>
 
                     <div class="form-group">
@@ -553,7 +553,7 @@
     // Configuration (injected by generator)
     const CONFIG = {
         serverPublicKey: '{{SERVER_PUBLIC_KEY}}',
-        decryptMessage: '{{DECRYPT_MESSAGE}}',
+        publicSecret: '{{PUBLIC_SECRET}}',
         chainId: {{CHAIN_ID}},
         rpcUrl: '{{RPC_URL}}',
         nftContract: '{{NFT_CONTRACT}}',
@@ -868,16 +868,16 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span>Signing...';
 
-            // Get decrypt message from NFT metadata
-            const decryptMessage = selectedNft.metadata.decryptMessage || selectedNft.metadata.decrypt_message || CONFIG.decryptMessage;
+            // Get public secret from NFT metadata
+            const publicSecret = selectedNft.metadata.publicSecret || selectedNft.metadata.public_secret || CONFIG.publicSecret;
             const userEncrypted = selectedNft.metadata.userEncrypted || selectedNft.metadata.user_encrypted;
 
             if (!userEncrypted) {
                 throw new Error('No encrypted data found in NFT metadata');
             }
 
-            // Sign the decrypt message
-            const signature = await signer.signMessage(decryptMessage);
+            // Sign the public secret
+            const signature = await signer.signMessage(publicSecret);
 
             // Derive key from signature
             showStatus(statusEl, 'Decrypting...', 'info');
@@ -937,7 +937,7 @@
             const tokenURI = await nftContract.tokenURI(tokenId);
             const metadata = await fetchTokenMetadata(tokenURI);
 
-            const decryptMessage = metadata.decryptMessage || metadata.decrypt_message || CONFIG.decryptMessage;
+            const publicSecret = metadata.publicSecret || metadata.public_secret || CONFIG.publicSecret;
             const userEncrypted = metadata.userEncrypted || metadata.user_encrypted;
 
             if (!userEncrypted) {
@@ -945,22 +945,22 @@
             }
 
             // Display info for offline signing
-            document.getElementById('offline-decrypt-message').textContent = decryptMessage;
+            document.getElementById('offline-public-secret').textContent = publicSecret;
             document.getElementById('offline-encrypted-data').textContent = userEncrypted;
             document.getElementById('offline-cli-instructions').textContent =
 `# Sign with cast (Foundry)
-cast wallet sign "${decryptMessage}" --private-key YOUR_PRIVATE_KEY
+cast wallet sign "${publicSecret}" --private-key YOUR_PRIVATE_KEY
 
 # Or with ethers.js
 const wallet = new ethers.Wallet('YOUR_PRIVATE_KEY');
-console.log(await wallet.signMessage('${decryptMessage}'));`;
+console.log(await wallet.signMessage('${publicSecret}'));`;
 
             document.getElementById('offline-nft-info').classList.remove('hidden');
             document.getElementById('offline-connection-result').classList.add('hidden');
             statusEl.innerHTML = '';
 
             // Store for later decryption
-            window.offlineNftData = { decryptMessage, userEncrypted };
+            window.offlineNftData = { publicSecret, userEncrypted };
 
         } catch (err) {
             console.error('Lookup error:', err);
@@ -1061,7 +1061,7 @@ console.log(await wallet.signMessage('${decryptMessage}'));`;
                 });
             }
 
-            userSignature = await signer.signMessage(CONFIG.decryptMessage);
+            userSignature = await signer.signMessage(CONFIG.publicSecret);
             showStatus(signatureStatus, 'Encrypting credentials...', 'info');
             encryptedSignature = await window.ECIES.encrypt(CONFIG.serverPublicKey, userSignature);
 

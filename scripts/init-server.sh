@@ -26,14 +26,14 @@ WEB3_CONFIG_FILE="${CONFIG_DIR}/web3-defaults.yaml"
 DB_CONFIG_FILE="${CONFIG_DIR}/db.yaml"
 
 # Defaults (can be overridden via arguments)
-DECRYPT_MESSAGE="blockhost-access"
+PUBLIC_SECRET="blockhost-access"
 DEPLOYER_KEY=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --decrypt-message)
-            DECRYPT_MESSAGE="$2"
+        --public-secret)
+            PUBLIC_SECRET="$2"
             shift 2
             ;;
         --deployer-key)
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [options]"
             echo ""
             echo "Options:"
-            echo "  --decrypt-message MSG   Static message users sign to derive encryption key"
+            echo "  --public-secret MSG     Static message users sign to derive encryption key"
             echo "                          Default: \"blockhost-access\""
             echo "  --deployer-key KEY      Existing deployer private key (hex, with or without 0x)"
             echo "  --deployer-key-file F   Read deployer private key from file"
@@ -180,7 +180,7 @@ cat > "${CONFIG_FILE}" << EOF
 
 # Static message users sign to derive their encryption key
 # This must match what the signup page displays
-decrypt_message: "${DECRYPT_MESSAGE}"
+public_secret: "${PUBLIC_SECRET}"
 
 # Server public key (for reference - signup page needs this)
 # Private key is stored in: ${SERVER_KEY_FILE}
@@ -229,8 +229,8 @@ echo ""
 echo "Deployer Wallet Address:"
 echo "${DEPLOYER_ADDRESS}"
 echo ""
-echo "Decrypt Message:"
-echo "${DECRYPT_MESSAGE}"
+echo "Public Secret:"
+echo "${PUBLIC_SECRET}"
 echo ""
 echo "Files created:"
 echo "  - ${SERVER_KEY_FILE} (chmod 600)"

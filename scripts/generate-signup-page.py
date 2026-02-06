@@ -71,7 +71,7 @@ def generate_page(config: dict, template: str) -> str:
 
     # Required config values
     server_public_key = config.get('server_public_key', '')
-    decrypt_message = config.get('decrypt_message', 'blockhost-access')
+    public_secret = config.get('public_secret', 'blockhost-access')
 
     # Web3 config (may be nested under 'blockchain')
     blockchain = config.get('blockchain', {})
@@ -92,7 +92,7 @@ def generate_page(config: dict, template: str) -> str:
     # Replace placeholders
     replacements = {
         '{{SERVER_PUBLIC_KEY}}': server_public_key,
-        '{{DECRYPT_MESSAGE}}': decrypt_message,
+        '{{PUBLIC_SECRET}}': public_secret,
         '{{CHAIN_ID}}': str(chain_id),
         '{{RPC_URL}}': rpc_url,
         '{{NFT_CONTRACT}}': nft_contract,
@@ -204,7 +204,7 @@ def main():
     blockchain = config.get('blockchain', {})
     print(f"Generated: {output_path}")
     print(f"  Server public key: {config.get('server_public_key', 'NOT SET')[:20]}...")
-    print(f"  Decrypt message: {config.get('decrypt_message', 'NOT SET')}")
+    print(f"  Public secret: {config.get('public_secret', 'NOT SET')}")
     print(f"  Chain ID: {blockchain.get('chain_id', config.get('chain_id', 'NOT SET'))}")
     print(f"  Subscription contract: {blockchain.get('subscription_contract', 'NOT SET')}")
 
