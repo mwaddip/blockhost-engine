@@ -1,0 +1,21 @@
+# Example admin configuration for blockhost.yaml
+# Add this section to /etc/blockhost/blockhost.yaml
+
+admin:
+  # Admin wallet address - the only wallet authorized to send admin commands
+  wallet_address: "0x1234567890abcdef1234567890abcdef12345678"
+
+  # Maximum age of commands in seconds (default: 300)
+  # Commands older than this are rejected
+  max_command_age: 300
+
+  # Destination mode - how to filter transaction destinations
+  # Options:
+  #   "any"    - Accept commands to any destination (simplest)
+  #   "self"   - Admin must send to own address (tx.from === tx.to)
+  #   "server" - Admin must send to server's ETH address (derived from pubkey)
+  #   "null"   - Admin must send to a null/burn address
+  destination_mode: "any"
+
+  # Custom destination address (only used if mode is "null")
+  # destination_address: "0x000000000000000000000000000000000000dEaD"

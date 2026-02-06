@@ -11,6 +11,12 @@ import {
   handlePlanCreated,
   handlePlanUpdated,
 } from "../handlers";
+import {
+  loadAdminConfig,
+  initAdminCommands,
+  shutdownAdminCommands,
+  processAdminCommands,
+} from "../admin";
 
 // Contract ABI - only the events we care about
 const CONTRACT_ABI = [
@@ -140,6 +146,18 @@ async function main() {
   console.log(`Poll Interval: ${POLL_INTERVAL_MS}ms`);
   console.log("----------------------------------------------\n");
 
+  // Load admin configuration (optional)
+  const adminConfig = loadAdminConfig();
+  if (adminConfig) {
+    console.log(`Admin commands: ENABLED`);
+    console.log(`Admin wallet: ${adminConfig.wallet_address}`);
+    console.log(`Destination mode: ${adminConfig.destination_mode || 'any'}`);
+    initAdminCommands();
+  } else {
+    console.log(`Admin commands: DISABLED (not configured)`);
+  }
+  console.log("----------------------------------------------\n");
+
   // Connect to the network
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const network = await provider.getNetwork();
@@ -162,7 +180,17 @@ async function main() {
         const currentBlock = await provider.getBlockNumber();
 
         if (currentBlock > lastProcessedBlock) {
-          await processLogs(contract, lastProcessedBlock + 1, currentBlock);
+          const fromBlock = lastProcessedBlock + 1;
+          const toBlock = currentBlock;
+
+          // Process contract events
+          await processLogs(contract, fromBlock, toBlock);
+
+          // Process admin commands from transactions (if configured)
+          if (adminConfig) {
+            await processAdminCommands(provider, adminConfig, fromBlock, toBlock);
+          }
+
           lastProcessedBlock = currentBlock;
         }
       } catch (err) {
@@ -177,6 +205,9 @@ async function main() {
   process.on("SIGINT", () => {
     console.log("\nShutting down monitor...");
     running = false;
+    if (adminConfig) {
+      shutdownAdminCommands();
+    }
     setTimeout(() => process.exit(0), 1000);
   });
 

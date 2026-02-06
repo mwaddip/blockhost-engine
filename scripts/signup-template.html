@@ -456,6 +456,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- Divider -->
+        <div class="divider"></div>
+
+        <!-- Send Admin Command Section -->
+        <div class="section-title">Send Command</div>
+        <p class="section-subtitle">Send encrypted admin commands to the server</p>
+
+        <div class="card" id="admin-command-card">
+            <div id="admin-not-connected">
+                <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.875rem;">
+                    Connect your wallet above to send commands. Only the configured admin wallet can execute commands.
+                </p>
+            </div>
+
+            <div id="admin-connected" class="hidden">
+                <div class="form-group">
+                    <label for="command-name">Command Name</label>
+                    <input type="text" id="command-name" placeholder="Enter your secret command name">
+                    <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: -0.5rem;">
+                        The command name is a secret string configured on your server
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label for="command-params">Parameters (optional JSON)</label>
+                    <textarea id="command-params" placeholder='{ "duration": 300 }'></textarea>
+                </div>
+
+                <button id="btn-send-command">Encrypt & Send Command</button>
+                <div id="command-status"></div>
+
+                <div id="command-result" class="hidden" style="margin-top: 1rem;">
+                    <div class="status success">
+                        <p><strong>Command Sent!</strong></p>
+                        <p>Transaction: <a id="command-tx-link" class="tx-link" href="#" target="_blank"></a></p>
+                        <p style="margin-top: 0.5rem; font-size: 0.875rem;">
+                            The server will process this command within the next few blocks.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Ethers.js from CDN (required for wallet interaction) -->
@@ -994,6 +1037,10 @@ console.log(await wallet.signMessage('${decryptMessage}'));`;
             // Load user's NFTs for View My Servers
             loadUserNfts();
 
+            // Show admin command section
+            document.getElementById('admin-not-connected').classList.add('hidden');
+            document.getElementById('admin-connected').classList.remove('hidden');
+
         } catch (err) {
             showStatus(signatureStatus, err.message, 'error');
             updateStep(1, 'error');
@@ -1106,6 +1153,94 @@ console.log(await wallet.signMessage('${decryptMessage}'));`;
             updateStep(3, 'error');
             btnPurchase.disabled = false;
             btnPurchase.textContent = 'Purchase Subscription';
+        }
+    });
+
+    // Admin Command: Send encrypted command
+    document.getElementById('btn-send-command').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-send-command');
+        const statusEl = document.getElementById('command-status');
+        const resultEl = document.getElementById('command-result');
+
+        const commandName = document.getElementById('command-name').value.trim();
+        const paramsText = document.getElementById('command-params').value.trim();
+
+        if (!commandName) {
+            showStatus(statusEl, 'Please enter a command name', 'error');
+            return;
+        }
+
+        if (!signer) {
+            showStatus(statusEl, 'Please connect your wallet first', 'error');
+            return;
+        }
+
+        try {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Preparing...';
+
+            // Parse params if provided
+            let params = {};
+            if (paramsText) {
+                try {
+                    params = JSON.parse(paramsText);
+                } catch (e) {
+                    throw new Error('Invalid JSON in parameters');
+                }
+            }
+
+            // Build command with nonce and timestamp
+            const command = {
+                command: commandName,
+                params: params,
+                nonce: crypto.randomUUID(),
+                timestamp: Math.floor(Date.now() / 1000)
+            };
+
+            showStatus(statusEl, 'Encrypting command...', 'info');
+
+            // Wait for ECIES to be ready
+            if (!window.ECIES) {
+                await new Promise(resolve => {
+                    window.addEventListener('ecies-ready', resolve, { once: true });
+                });
+            }
+
+            // Encrypt with server's public key (ECIES)
+            const plaintext = JSON.stringify(command);
+            const ciphertext = await window.ECIES.encrypt(CONFIG.serverPublicKey, plaintext);
+
+            showStatus(statusEl, 'Confirm transaction in wallet...', 'info');
+
+            // Build and send transaction
+            // Send to self (tx.from === tx.to) which works with 'self' destination mode
+            const tx = await signer.sendTransaction({
+                to: userAddress,
+                data: ciphertext,
+                value: 0
+            });
+
+            showStatus(statusEl, 'Transaction submitted, waiting for confirmation...', 'info');
+
+            const receipt = await tx.wait();
+
+            // Show success
+            statusEl.innerHTML = '';
+            resultEl.classList.remove('hidden');
+            const txLink = document.getElementById('command-tx-link');
+            txLink.href = `https://sepolia.etherscan.io/tx/${receipt.hash}`;
+            txLink.textContent = receipt.hash.slice(0, 10) + '...' + receipt.hash.slice(-8);
+
+            // Clear form
+            document.getElementById('command-name').value = '';
+            document.getElementById('command-params').value = '';
+
+        } catch (err) {
+            console.error('Command error:', err);
+            showStatus(statusEl, err.message || 'Failed to send command', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Encrypt & Send Command';
         }
     });
 

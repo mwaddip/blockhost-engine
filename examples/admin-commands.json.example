@@ -1,0 +1,13 @@
+{
+  "commands": {
+    "a7f3x9q2": {
+      "action": "knock",
+      "description": "Open SSH and Proxmox ports temporarily",
+      "params": {
+        "allowed_ports": [22, 8006],
+        "max_duration": 600,
+        "default_duration": 300
+      }
+    }
+  }
+}
