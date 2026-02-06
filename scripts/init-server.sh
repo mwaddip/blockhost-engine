@@ -210,7 +210,7 @@ if [[ ! -f "${DB_FILE}" ]]; then
 {
   "vms": {},
   "next_vmid": 100,
-  "next_nft_token_id": 0,
+  "reserved_nft_tokens": {},
   "allocated_ips": []
 }
 EOF

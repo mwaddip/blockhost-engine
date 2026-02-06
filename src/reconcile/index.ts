@@ -33,9 +33,8 @@ interface VmEntry {
 interface VmsDatabase {
   vms: Record<string, VmEntry>;
   next_vmid: number;
-  next_nft_token_id: number;
   allocated_ips: string[];
-  nft_tokens?: Record<string, { vm_name: string; minted: boolean }>;
+  reserved_nft_tokens?: Record<string, { vm_name: string; minted: boolean }>;
 }
 
 let lastReconcileTime = 0;
@@ -195,21 +194,25 @@ export async function runReconciliation(provider: ethers.Provider): Promise<void
     }
 
     const onChainCount = Number(onChainSupply);
-    const localNextId = localDb.next_nft_token_id || 0;
+
+    // Derive local expected next ID from reserved_nft_tokens keys
+    // The next ID would be max(existing keys) + 1, or 0 if no tokens reserved
+    let localNextId = 0;
+    if (localDb.reserved_nft_tokens) {
+      const reservedIds = Object.keys(localDb.reserved_nft_tokens).map(k => parseInt(k, 10));
+      if (reservedIds.length > 0) {
+        localNextId = Math.max(...reservedIds) + 1;
+      }
+    }
 
     // If on-chain has more tokens than local expects, we need to reconcile
     if (onChainCount > localNextId) {
-      console.log(`[RECONCILE] Discrepancy detected: on-chain has ${onChainCount} tokens, local expects next_id=${localNextId}`);
+      console.log(`[RECONCILE] Discrepancy detected: on-chain has ${onChainCount} tokens, local max reserved=${localNextId - 1}`);
 
       // Check each token from localNextId to onChainCount-1
       for (let tokenId = localNextId; tokenId < onChainCount; tokenId++) {
         await reconcileToken(nftContract, localDb, tokenId);
       }
-
-      // Update next_nft_token_id to match on-chain
-      localDb.next_nft_token_id = onChainCount;
-      saveVmsDatabase(localDb);
-      console.log(`[RECONCILE] Updated next_nft_token_id to ${onChainCount}`);
     }
 
     // Also check VMs that have reserved tokens but not marked as minted
@@ -233,9 +236,9 @@ export async function runReconciliation(provider: ethers.Provider): Promise<void
       }
     }
 
-    // Check nft_tokens map if it exists
-    if (localDb.nft_tokens) {
-      for (const [tokenIdStr, tokenInfo] of Object.entries(localDb.nft_tokens)) {
+    // Check reserved_nft_tokens map if it exists
+    if (localDb.reserved_nft_tokens) {
+      for (const [tokenIdStr, tokenInfo] of Object.entries(localDb.reserved_nft_tokens)) {
         const tokenId = parseInt(tokenIdStr, 10);
         if (!tokenInfo.minted && tokenId < onChainCount) {
           // Check if token exists on-chain
