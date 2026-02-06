@@ -36,7 +36,8 @@ export function tryDecryptCommand(txData: string): string | null {
       `pam_web3_tool decrypt --private-key-file "${privateKeyPath}" --ciphertext "${ciphertext}"`,
       { encoding: "utf8", timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] }
     );
-    return result.trim();
+    // Strip "Decrypted: " prefix if present
+    return result.trim().replace(/^Decrypted:\s*/, '');
   } catch {
     // Decryption failed - this is not an admin command
     return null;

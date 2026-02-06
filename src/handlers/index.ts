@@ -99,7 +99,8 @@ function decryptUserSignature(userEncrypted: string): string | null {
       `pam_web3_tool decrypt --private-key-file ${SERVER_PRIVATE_KEY_FILE} --ciphertext ${userEncrypted}`,
       { encoding: "utf8", timeout: 10000 }
     );
-    return result.trim();
+    // Strip "Decrypted: " prefix if present
+    return result.trim().replace(/^Decrypted:\s*/, '');
   } catch (err) {
     console.error(`[ERROR] Failed to decrypt user signature: ${err}`);
     return null;
