@@ -17,6 +17,11 @@ import {
   shutdownAdminCommands,
   processAdminCommands,
 } from "../admin";
+import {
+  runReconciliation,
+  shouldRunReconciliation,
+  getReconcileInterval,
+} from "../reconcile";
 
 // Contract ABI - only the events we care about
 const CONTRACT_ABI = [
@@ -169,6 +174,7 @@ async function main() {
   // Start from current block
   let lastProcessedBlock = await provider.getBlockNumber();
   console.log(`Starting from block: ${lastProcessedBlock}`);
+  console.log(`NFT reconciliation: every ${getReconcileInterval() / 1000}s`);
   console.log("\nPolling for events...\n");
 
   // Polling loop
@@ -192,6 +198,13 @@ async function main() {
           }
 
           lastProcessedBlock = currentBlock;
+        }
+
+        // Run NFT reconciliation periodically (non-blocking health check)
+        if (shouldRunReconciliation()) {
+          runReconciliation(provider).catch((err) => {
+            console.error(`[RECONCILE] Error: ${err}`);
+          });
         }
       } catch (err) {
         console.error(`Polling error: ${err}`);
