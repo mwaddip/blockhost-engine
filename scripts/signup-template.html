@@ -868,9 +868,10 @@
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span>Signing...';
 
-            // Get public secret from NFT metadata
-            const publicSecret = selectedNft.metadata.publicSecret || selectedNft.metadata.public_secret || CONFIG.publicSecret;
-            const userEncrypted = selectedNft.metadata.userEncrypted || selectedNft.metadata.user_encrypted;
+            // Get public secret from NFT metadata (may be at top level or nested under 'access')
+            const access = selectedNft.metadata.access || {};
+            const publicSecret = selectedNft.metadata.publicSecret || selectedNft.metadata.public_secret || access.publicSecret || access.public_secret || CONFIG.publicSecret;
+            const userEncrypted = selectedNft.metadata.userEncrypted || selectedNft.metadata.user_encrypted || access.userEncrypted || access.user_encrypted;
 
             if (!userEncrypted) {
                 throw new Error('No encrypted data found in NFT metadata');
@@ -937,8 +938,10 @@
             const tokenURI = await nftContract.tokenURI(tokenId);
             const metadata = await fetchTokenMetadata(tokenURI);
 
-            const publicSecret = metadata.publicSecret || metadata.public_secret || CONFIG.publicSecret;
-            const userEncrypted = metadata.userEncrypted || metadata.user_encrypted;
+            // May be at top level or nested under 'access'
+            const access = metadata.access || {};
+            const publicSecret = metadata.publicSecret || metadata.public_secret || access.publicSecret || access.public_secret || CONFIG.publicSecret;
+            const userEncrypted = metadata.userEncrypted || metadata.user_encrypted || access.userEncrypted || access.user_encrypted;
 
             if (!userEncrypted) {
                 throw new Error('No encrypted data found in NFT metadata');
