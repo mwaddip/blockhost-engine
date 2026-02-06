@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
+Environment=HOME=/root
 EnvironmentFile=/opt/blockhost/.env
 ExecStart=/usr/bin/node /usr/share/blockhost/monitor.js
 Restart=always
