@@ -40,6 +40,30 @@ fi
 MONITOR_SIZE=$(du -h "$PKG_DIR/usr/share/blockhost/monitor.js" | cut -f1)
 echo "Monitor bundle created: $MONITOR_SIZE"
 
+# Bundle the bw CLI into a single JS file
+echo "Bundling bw CLI with esbuild..."
+npx esbuild "$PROJECT_DIR/src/bw/index.ts" \
+    --bundle \
+    --platform=node \
+    --target=node18 \
+    --minify \
+    --outfile="$PKG_DIR/usr/share/blockhost/bw.js"
+
+if [ ! -f "$PKG_DIR/usr/share/blockhost/bw.js" ]; then
+    echo "ERROR: Failed to create bw CLI bundle"
+    exit 1
+fi
+
+BW_SIZE=$(du -h "$PKG_DIR/usr/share/blockhost/bw.js" | cut -f1)
+echo "bw CLI bundle created: $BW_SIZE"
+
+# Create bw wrapper script
+cat > "$PKG_DIR/usr/bin/bw" << 'BWEOF'
+#!/bin/sh
+exec /usr/bin/node /usr/share/blockhost/bw.js "$@"
+BWEOF
+chmod 755 "$PKG_DIR/usr/bin/bw"
+
 # ============================================
 # Compile Solidity contracts with Foundry
 # ============================================
@@ -269,6 +293,8 @@ dpkg-deb --info "$SCRIPT_DIR/${PKG_NAME}.deb"
 echo ""
 echo "Package contents:"
 echo "  /usr/share/blockhost/monitor.js - Bundled monitor ($MONITOR_SIZE)"
+echo "  /usr/share/blockhost/bw.js      - Bundled bw CLI ($BW_SIZE)"
+echo "  /usr/bin/bw                     - Blockwallet CLI wrapper"
 echo "  /usr/bin/blockhost-init         - Server initialization script"
 echo "  /usr/bin/blockhost-generate-signup - Signup page generator"
 echo "  /opt/blockhost/                 - Deployment scripts (require npm install)"

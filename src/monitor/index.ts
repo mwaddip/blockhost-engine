@@ -22,6 +22,14 @@ import {
   shouldRunReconciliation,
   getReconcileInterval,
 } from "../reconcile";
+import {
+  shouldRunFundCycle,
+  runFundCycle,
+  shouldRunGasCheck,
+  runGasCheck,
+  getFundCycleInterval,
+  getGasCheckInterval,
+} from "../fund-manager";
 
 // Contract ABI - only the events we care about
 const CONTRACT_ABI = [
@@ -175,6 +183,8 @@ async function main() {
   let lastProcessedBlock = await provider.getBlockNumber();
   console.log(`Starting from block: ${lastProcessedBlock}`);
   console.log(`NFT reconciliation: every ${getReconcileInterval() / 1000}s`);
+  console.log(`Fund cycle: every ${getFundCycleInterval() / 3600000}h`);
+  console.log(`Gas check: every ${getGasCheckInterval() / 60000}min`);
   console.log("\nPolling for events...\n");
 
   // Polling loop
@@ -204,6 +214,20 @@ async function main() {
         if (shouldRunReconciliation()) {
           runReconciliation(provider).catch((err) => {
             console.error(`[RECONCILE] Error: ${err}`);
+          });
+        }
+
+        // Run fund withdrawal & distribution cycle periodically
+        if (shouldRunFundCycle()) {
+          runFundCycle(provider).catch((err) => {
+            console.error(`[FUND] Error: ${err}`);
+          });
+        }
+
+        // Check gas balance and swap if needed
+        if (shouldRunGasCheck()) {
+          runGasCheck(provider).catch((err) => {
+            console.error(`[GAS] Error: ${err}`);
           });
         }
       } catch (err) {

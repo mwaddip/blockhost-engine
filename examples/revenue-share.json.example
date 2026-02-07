@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "total_percent": 1.0,
+  "recipients": [
+    { "role": "dev", "percent": 0.5 },
+    { "role": "broker", "percent": 0.5 }
+  ]
+}

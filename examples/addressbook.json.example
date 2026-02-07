@@ -1,0 +1,6 @@
+{
+  "admin":  { "address": "0xOperatorWallet..." },
+  "server": { "address": "0xDeployerWallet...", "keyfile": "/etc/blockhost/deployer.key" },
+  "dev":    { "address": "0xe35B5D114eFEA216E6BB5Ff15C261d25dB9E2cb9" },
+  "broker": { "address": "0xBrokerWallet..." }
+}
