@@ -1,7 +1,8 @@
 /**
  * bw send <amount> <token> <from> <to>
  *
- * Send tokens from a signing wallet to a recipient
+ * Send tokens from a signing wallet to a recipient.
+ * Core function executeSend() is also used by fund-manager.
  */
 
 import { ethers } from "ethers";
@@ -10,6 +11,47 @@ import { resolveAddress, resolveWallet } from "../../fund-manager/addressbook";
 import { transferToken, ERC20_ABI } from "../../fund-manager/token-utils";
 import { resolveToken } from "../cli-utils";
 
+/**
+ * Core send operation — used by both CLI and fund-manager.
+ * Throws on error (caller decides how to handle).
+ * Returns the transaction hash.
+ */
+export async function executeSend(
+  amountStr: string,
+  tokenArg: string,
+  fromRole: string,
+  toRole: string,
+  book: Addressbook,
+  provider: ethers.Provider,
+  contract: ethers.Contract
+): Promise<string> {
+  const signer = resolveWallet(fromRole, book, provider);
+  if (!signer) throw new Error(`Cannot sign as '${fromRole}': no keyfile`);
+
+  const toAddress = resolveAddress(toRole, book);
+  if (!toAddress) throw new Error(`Cannot resolve recipient '${toRole}'`);
+
+  const resolved = await resolveToken(tokenArg, contract);
+
+  if (resolved.isNative) {
+    const tx = await signer.sendTransaction({
+      to: toAddress,
+      value: ethers.parseEther(amountStr),
+    });
+    const receipt = await tx.wait();
+    return receipt!.hash;
+  }
+
+  const token = new ethers.Contract(resolved.address, ERC20_ABI, provider);
+  const decimals = Number(await token.decimals());
+  const tokenAmount = ethers.parseUnits(amountStr, decimals);
+  const receipt = await transferToken(resolved.address, toAddress, tokenAmount, signer);
+  return receipt!.hash;
+}
+
+/**
+ * CLI handler
+ */
 export async function sendCommand(
   args: string[],
   book: Addressbook,
@@ -30,47 +72,7 @@ export async function sendCommand(
     process.exit(1);
   }
 
-  // Resolve sender (needs keyfile)
-  const signer = resolveWallet(fromRole, book, provider);
-  if (!signer) {
-    process.exit(1);
-  }
-
-  // Resolve recipient
-  const toAddress = resolveAddress(toRole, book);
-  if (!toAddress) {
-    process.exit(1);
-  }
-
-  // Resolve token
-  const resolved = await resolveToken(tokenArg, contract);
-
-  if (resolved.isNative) {
-    // Send native ETH
-    const weiAmount = ethers.parseEther(amountStr);
-    console.log(`Sending ${amountStr} ETH from ${fromRole} to ${toRole} (${toAddress})...`);
-    const tx = await signer.sendTransaction({
-      to: toAddress,
-      value: weiAmount,
-    });
-    const receipt = await tx.wait();
-    console.log(`Sent. tx: ${receipt?.hash}`);
-  } else {
-    // Send ERC20 token
-    const token = new ethers.Contract(resolved.address, ERC20_ABI, provider);
-    const decimals = Number(await token.decimals());
-    const symbol: string = await token.symbol();
-    const tokenAmount = ethers.parseUnits(amountStr, decimals);
-
-    console.log(
-      `Sending ${amountStr} ${symbol} from ${fromRole} to ${toRole} (${toAddress})...`
-    );
-    const receipt = await transferToken(
-      resolved.address,
-      toAddress,
-      tokenAmount,
-      signer
-    );
-    console.log(`Sent. tx: ${receipt?.hash}`);
-  }
+  console.log(`Sending ${amountStr} ${tokenArg} from ${fromRole} to ${toRole}...`);
+  const txHash = await executeSend(amountStr, tokenArg, fromRole, toRole, book, provider, contract);
+  console.log(`Sent. tx: ${txHash}`);
 }

@@ -27,6 +27,7 @@ export interface FundManagerConfig {
   gas_low_threshold_usd: number;
   gas_swap_amount_usd: number;
   server_stablecoin_buffer_usd: number;
+  hot_wallet_gas_eth: number;
 }
 
 export interface ChainConfig {

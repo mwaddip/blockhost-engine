@@ -3,7 +3,7 @@
  *
  * Periodic tasks integrated into the monitor polling loop:
  *  - Fund cycle (every 24h): withdraw from contract → distribute to stakeholders
- *  - Gas check (every 30min): ensure server wallet has enough ETH for transactions
+ *  - Gas check (every 30min): ensure server + hot wallets have enough ETH
  *
  * Follows the same pattern as src/reconcile/index.ts
  */
@@ -12,6 +12,7 @@ import { ethers } from "ethers";
 import { loadFundManagerConfig, loadRevenueShareConfig } from "./config";
 import { loadAddressbook, ensureHotWallet } from "./addressbook";
 import { loadState, updateState } from "./state";
+import { SUBSCRIPTION_ABI } from "./token-utils";
 import { withdrawFromContract } from "./withdrawal";
 import {
   topUpHotWalletGas,
@@ -61,6 +62,13 @@ export function getGasCheckInterval(): number {
 }
 
 /**
+ * Create a contract instance for fund-manager operations
+ */
+function getContract(contractAddress: string, provider: ethers.Provider): ethers.Contract {
+  return new ethers.Contract(contractAddress, SUBSCRIPTION_ABI, provider);
+}
+
+/**
  * Run the full fund withdrawal and distribution cycle.
  *
  * 1. Withdraw from contract to hot wallet
@@ -90,21 +98,23 @@ export async function runFundCycle(provider: ethers.Provider): Promise<void> {
     }
     book = ensureHotWallet(book);
 
+    const contract = getContract(contractAddress, provider);
+
     // Step 1: Withdraw from contract to hot wallet
-    await withdrawFromContract(contractAddress, book, config, provider);
+    await withdrawFromContract(book, config, provider, contract);
 
     // Step 2: Top up hot wallet gas (server → hot)
-    await topUpHotWalletGas(book, provider);
+    await topUpHotWalletGas(book, config, provider, contract);
 
     // Step 3: Top up server stablecoin buffer (hot → server)
-    await topUpServerStablecoinBuffer(contractAddress, book, config, provider);
+    await topUpServerStablecoinBuffer(book, config, provider, contract);
 
     // Step 4: Revenue shares (hot → dev/broker)
     const revenueConfig = loadRevenueShareConfig();
-    await distributeRevenueShares(contractAddress, book, revenueConfig, provider);
+    await distributeRevenueShares(book, revenueConfig, provider, contract);
 
     // Step 5: Remainder to admin (hot → admin)
-    await sendRemainderToAdmin(contractAddress, book, provider);
+    await sendRemainderToAdmin(book, provider, contract);
 
     console.log("[FUND] Fund cycle complete");
   } catch (err) {
@@ -123,10 +133,21 @@ export async function runGasCheck(provider: ethers.Provider): Promise<void> {
   gasCheckInProgress = true;
 
   try {
+    const contractAddress = process.env.BLOCKHOST_CONTRACT;
+    if (!contractAddress) return;
+
     const book = loadAddressbook();
     if (Object.keys(book).length === 0) return;
 
-    await checkAndSwapGas(book, config, provider);
+    const contract = getContract(contractAddress, provider);
+
+    // Top up hot wallet ETH from server if low
+    if (book.hot) {
+      await topUpHotWalletGas(book, config, provider, contract);
+    }
+
+    // Swap USDC→ETH for server wallet if low
+    await checkAndSwapGas(book, config, provider, contract);
   } catch (err) {
     console.error(`[GAS] Error during gas check: ${err}`);
   } finally {

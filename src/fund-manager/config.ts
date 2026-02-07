@@ -16,6 +16,7 @@ const DEFAULTS: FundManagerConfig = {
   gas_low_threshold_usd: 5,
   gas_swap_amount_usd: 20,
   server_stablecoin_buffer_usd: 50,
+  hot_wallet_gas_eth: 0.01,
 };
 
 /**
@@ -49,6 +50,8 @@ export function loadFundManagerConfig(): FundManagerConfig {
         (fm.gas_swap_amount_usd as number) || DEFAULTS.gas_swap_amount_usd,
       server_stablecoin_buffer_usd:
         (fm.server_stablecoin_buffer_usd as number) || DEFAULTS.server_stablecoin_buffer_usd,
+      hot_wallet_gas_eth:
+        (fm.hot_wallet_gas_eth as number) || DEFAULTS.hot_wallet_gas_eth,
     };
   } catch (err) {
     console.error(`[FUND] Error loading config: ${err}`);

@@ -2,14 +2,14 @@
  * Gas token monitoring and USDC→ETH swap
  *
  * Periodically checks the server wallet's ETH balance.
- * If below threshold, swaps stablecoin for ETH via Uniswap V2.
+ * If below threshold, swaps stablecoin for ETH via bw swap.
  */
 
 import { ethers } from "ethers";
 import type { Addressbook, FundManagerConfig } from "./types";
-import { resolveWallet } from "./addressbook";
-import { getChainConfig, UNISWAP_V2_ROUTER_ABI, UNISWAP_V2_PAIR_ABI } from "./chain-pools";
-import { ERC20_ABI, getTokenBalance } from "./token-utils";
+import { getChainConfig, UNISWAP_V2_PAIR_ABI } from "./chain-pools";
+import { getTokenBalance } from "./token-utils";
+import { executeSwap } from "../bw/commands/swap";
 
 /**
  * Get ETH price in USD from a Uniswap V2 WETH/USDC pair
@@ -36,7 +36,6 @@ async function getEthPriceUsd(
     usdcReserve = reserve0;
   }
 
-  // Price = usdcReserve / wethReserve, normalized for decimals
   const usdcFloat = parseFloat(ethers.formatUnits(usdcReserve, usdcDecimals));
   const wethFloat = parseFloat(ethers.formatEther(wethReserve));
   return usdcFloat / wethFloat;
@@ -48,15 +47,14 @@ async function getEthPriceUsd(
 export async function checkAndSwapGas(
   book: Addressbook,
   config: FundManagerConfig,
-  provider: ethers.Provider
+  provider: ethers.Provider,
+  contract: ethers.Contract
 ): Promise<void> {
-  const serverWallet = resolveWallet("server", book, provider);
-  if (!serverWallet) {
+  const serverAddress = book.server?.address;
+  if (!serverAddress || !book.server?.keyfile) {
     console.error("[GAS] Cannot check gas: server wallet not available");
     return;
   }
-
-  const serverAddress = await serverWallet.getAddress();
 
   // Get network chain ID
   const network = await provider.getNetwork();
@@ -70,15 +68,14 @@ export async function checkAndSwapGas(
     chainConfig.usdc_weth_pair === ethers.ZeroAddress ||
     chainConfig.usdc_weth_pair === "0x0000000000000000000000000000000000000000"
   ) {
-    // No pair configured (e.g., testnet), skip gas management
-    return;
+    return; // No pair configured (e.g., testnet)
   }
 
   // Check server ETH balance
   const ethBalance = await provider.getBalance(serverAddress);
 
   // Get ETH price to determine USD value
-  const { decimals: usdcDecimals } = await getTokenBalance(
+  const { decimals: usdcDecimals, balance: usdcBalance } = await getTokenBalance(
     chainConfig.usdc,
     serverAddress,
     provider
@@ -101,18 +98,8 @@ export async function checkAndSwapGas(
     `[GAS] Server ETH low: ${ethBalanceFloat.toFixed(4)} ETH (~$${ethBalanceUsd.toFixed(2)}), threshold: $${config.gas_low_threshold_usd}`
   );
 
-  // Check server USDC balance
-  const { balance: usdcBalance } = await getTokenBalance(
-    chainConfig.usdc,
-    serverAddress,
-    provider
-  );
-
-  const swapAmountUsdc = ethers.parseUnits(
-    config.gas_swap_amount_usd.toString(),
-    usdcDecimals
-  );
-
+  // Check server has enough USDC
+  const swapAmountUsdc = ethers.parseUnits(config.gas_swap_amount_usd.toString(), usdcDecimals);
   if (usdcBalance < swapAmountUsdc) {
     console.warn(
       `[GAS] Server USDC insufficient for gas swap: ${ethers.formatUnits(usdcBalance, usdcDecimals)} < ${config.gas_swap_amount_usd}`
@@ -120,44 +107,18 @@ export async function checkAndSwapGas(
     return;
   }
 
-  // Approve router to spend USDC
-  const router = new ethers.Contract(
-    chainConfig.router,
-    UNISWAP_V2_ROUTER_ABI,
-    serverWallet
+  console.log(`[GAS] Swapping $${config.gas_swap_amount_usd} USDC for ETH...`);
+  const txHash = await executeSwap(
+    config.gas_swap_amount_usd.toString(),
+    "stable",
+    "server",
+    book,
+    provider,
+    contract
   );
-  const usdc = new ethers.Contract(chainConfig.usdc, ERC20_ABI, serverWallet);
-
-  const allowance: bigint = await usdc.allowance(serverAddress, chainConfig.router);
-  if (allowance < swapAmountUsdc) {
-    console.log("[GAS] Approving router to spend USDC...");
-    const approveTx = await usdc.approve(chainConfig.router, ethers.MaxUint256);
-    await approveTx.wait();
-  }
-
-  // Get expected output with 2% slippage tolerance
-  const path = [chainConfig.usdc, chainConfig.weth];
-  const amounts: bigint[] = await router.getAmountsOut(swapAmountUsdc, path);
-  const expectedEth = amounts[1];
-  const minEthOut = (expectedEth * 98n) / 100n; // 2% slippage
-
-  const deadline = Math.floor(Date.now() / 1000) + 300; // 5 minutes
-
-  console.log(
-    `[GAS] Swapping $${config.gas_swap_amount_usd} USDC for ~${ethers.formatEther(expectedEth)} ETH...`
-  );
-
-  const tx = await router.swapExactTokensForETH(
-    swapAmountUsdc,
-    minEthOut,
-    path,
-    serverAddress,
-    deadline
-  );
-  const receipt = await tx.wait();
 
   const newBalance = await provider.getBalance(serverAddress);
   console.log(
-    `[GAS] Swapped $${config.gas_swap_amount_usd} USDC for ETH. New balance: ${ethers.formatEther(newBalance)} ETH (tx: ${receipt?.hash})`
+    `[GAS] Swapped $${config.gas_swap_amount_usd} USDC for ETH. New balance: ${ethers.formatEther(newBalance)} ETH (tx: ${txHash})`
   );
 }

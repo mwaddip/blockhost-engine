@@ -4,7 +4,7 @@
 
 import { ethers } from "ethers";
 import type { Addressbook } from "../fund-manager/types";
-import { SUBSCRIPTION_ABI, ERC20_ABI } from "../fund-manager/token-utils";
+import { SUBSCRIPTION_ABI } from "../fund-manager/token-utils";
 
 /**
  * Resolve a token shortcut to an address.

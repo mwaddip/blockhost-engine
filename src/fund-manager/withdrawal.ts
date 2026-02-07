@@ -3,31 +3,26 @@
  *
  * Step 1 of the fund cycle: withdraw accumulated tokens from the
  * subscription contract to the hot wallet.
+ * Uses bw withdraw under the hood.
  */
 
 import { ethers } from "ethers";
 import type { Addressbook, FundManagerConfig } from "./types";
-import { resolveWallet } from "./addressbook";
-import {
-  SUBSCRIPTION_ABI,
-  ERC20_ABI,
-  getTokenBalance,
-} from "./token-utils";
+import { getTokenBalance } from "./token-utils";
+import { executeWithdraw } from "../bw/commands/withdraw";
 
 /**
  * Withdraw all eligible token balances from the contract to the hot wallet.
  * Only withdraws tokens whose USD value exceeds the configured threshold.
  */
 export async function withdrawFromContract(
-  contractAddress: string,
   book: Addressbook,
   config: FundManagerConfig,
-  provider: ethers.Provider
+  provider: ethers.Provider,
+  contract: ethers.Contract
 ): Promise<void> {
-  // Server wallet is the contract owner and can call withdrawFunds
-  const serverWallet = resolveWallet("server", book, provider);
-  if (!serverWallet) {
-    console.error("[FUND] Cannot withdraw: server wallet not available");
+  if (!book.server?.keyfile) {
+    console.error("[FUND] Cannot withdraw: server wallet has no keyfile");
     return;
   }
 
@@ -37,7 +32,7 @@ export async function withdrawFromContract(
     return;
   }
 
-  const contract = new ethers.Contract(contractAddress, SUBSCRIPTION_ABI, serverWallet);
+  const contractAddress = await contract.getAddress();
 
   // Get all payment method IDs
   let paymentMethodIds: bigint[];
@@ -53,7 +48,7 @@ export async function withdrawFromContract(
     return;
   }
 
-  // Collect unique token addresses
+  // Collect unique token addresses with their payment method ID (for price lookup)
   const tokens = new Map<string, { address: string; pmId: bigint }>();
   for (const pmId of paymentMethodIds) {
     try {
@@ -76,7 +71,6 @@ export async function withdrawFromContract(
         contractAddress,
         provider
       );
-
       if (balance === 0n) continue;
 
       // Check USD value
@@ -86,7 +80,6 @@ export async function withdrawFromContract(
         const balanceFloat = parseFloat(ethers.formatUnits(balance, decimals));
         usdValue = (balanceFloat * Number(priceUsdCents)) / 100;
       } catch {
-        // Assume stablecoin 1:1
         usdValue = parseFloat(ethers.formatUnits(balance, decimals));
       }
 
@@ -101,9 +94,10 @@ export async function withdrawFromContract(
         `[FUND] Withdrawing ${ethers.formatUnits(balance, decimals)} ${symbol} (~$${usdValue.toFixed(2)}) to hot wallet`
       );
 
-      const tx = await contract.withdrawFunds(tokenAddress, hotAddress);
-      await tx.wait();
-      console.log(`[FUND] Withdrawal complete: tx ${tx.hash}`);
+      const txHash = await executeWithdraw(tokenAddress, "hot", book, provider, contractAddress);
+      if (txHash) {
+        console.log(`[FUND] Withdrawal complete: tx ${txHash}`);
+      }
     } catch (err) {
       console.error(`[FUND] Error withdrawing ${tokenAddress}: ${err}`);
     }

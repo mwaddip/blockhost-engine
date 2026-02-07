@@ -6,6 +6,8 @@
  *   bw send <amount> <token> <from> <to>
  *   bw balance <role> [token]
  *   bw split <amount> <token> <ratios> <from> <to1> <to2> ...
+ *   bw withdraw [token] <to>
+ *   bw swap <amount> <from-token> eth <wallet>
  *
  * Environment:
  *   SEPOLIA_RPC          — RPC endpoint URL
@@ -17,6 +19,8 @@ import { createProviderAndContract } from "./cli-utils";
 import { sendCommand } from "./commands/send";
 import { balanceCommand } from "./commands/balance";
 import { splitCommand } from "./commands/split";
+import { withdrawCommand } from "./commands/withdraw";
+import { swapCommand } from "./commands/swap";
 
 function printUsage(): void {
   console.log("bw (blockwallet) — scriptable wallet operations for blockhost");
@@ -26,6 +30,8 @@ function printUsage(): void {
   console.log("  bw balance <role> [token]                  Show balances");
   console.log("  bw split <amount> <token> <ratios> <from> <to1> <to2> ...");
   console.log("                                             Split tokens");
+  console.log("  bw withdraw [token] <to>                   Withdraw from contract");
+  console.log("  bw swap <amount> <from-token> eth <wallet> Swap token for ETH");
   console.log("");
   console.log("Token shortcuts: eth, stable, or 0x address");
   console.log("Roles: admin, server, hot, dev, broker (from addressbook.json)");
@@ -56,6 +62,12 @@ async function main(): Promise<void> {
       break;
     case "split":
       await splitCommand(args, book, provider, contract);
+      break;
+    case "withdraw":
+      await withdrawCommand(args, book, provider, contract);
+      break;
+    case "swap":
+      await swapCommand(args, book, provider, contract);
       break;
     default:
       console.error(`Unknown command: ${command}`);
