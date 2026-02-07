@@ -11,6 +11,7 @@ blockhost-engine is the core component of a hosting subscription management syst
 3. **Maintenance Scheduler** - Manages subscription lifecycle (suspend/destroy expired subscriptions)
 4. **Fund Manager** (TypeScript) - Automated fund withdrawal, revenue sharing, and gas management
 5. **bw CLI** (TypeScript) - Scriptable wallet operations (`bw send`, `bw balance`, `bw withdraw`, `bw swap`, `bw split`)
+6. **ab CLI** (TypeScript) - Addressbook management (`ab add`, `ab del`, `ab up`, `ab new`, `ab list`)
 
 VM provisioning is handled by the separate `blockhost-provisioner` package.
 Shared configuration is provided by `blockhost-common`.
@@ -51,7 +52,8 @@ blockhost-engine/
 │   ├── admin/           # On-chain admin commands (ECIES-encrypted, anti-replay)
 │   ├── reconcile/       # Periodic NFT state reconciliation
 │   ├── fund-manager/    # Automated fund withdrawal, distribution & gas management
-│   └── bw/              # blockwallet CLI (send, balance, withdraw, swap, split)
+│   ├── bw/              # blockwallet CLI (send, balance, withdraw, swap, split)
+│   └── ab/              # addressbook CLI (add, del, up, new, list)
 └── examples/            # Deployment examples (systemd, env, config)
 ```
 
@@ -136,7 +138,7 @@ Auto-generated on first fund cycle if not in addressbook. Private key saved to `
 | `server_stablecoin_buffer_usd` | 50 | Target stablecoin balance for server wallet |
 | `hot_wallet_gas_eth` | 0.01 | Target ETH balance for hot wallet |
 
-**`/etc/blockhost/addressbook.json`** — role-to-wallet mapping (written by installer):
+**`/etc/blockhost/addressbook.json`** — role-to-wallet mapping (written by installer, managed via `ab` CLI):
 
 ```json
 {
@@ -181,3 +183,20 @@ bw swap <amount> <from-token> eth <wallet>  # Swap token for ETH via Uniswap V2
 - **Signing**: Only roles with `keyfile` in addressbook can be used as `<from>`/`<wallet>`
 
 The fund-manager module imports `executeSend()`, `executeWithdraw()`, and `executeSwap()` from the bw command modules directly — all wallet operations flow through the same code paths.
+
+## ab (addressbook) CLI
+
+Standalone CLI for managing wallet entries in `/etc/blockhost/addressbook.json`. No RPC or contract env vars required — purely local filesystem operations.
+
+```bash
+ab add <name> <0xaddress>    # Add new entry
+ab del <name>                # Delete entry
+ab up <name> <0xaddress>     # Update entry's address
+ab new <name>                # Generate new wallet, save key, add to addressbook
+ab list                      # Show all entries
+```
+
+- **Immutable roles**: `server`, `admin`, `hot`, `dev`, `broker` — cannot be added, deleted, updated, or generated via `ab`
+- **`ab new`**: Generates a keypair, saves private key to `/etc/blockhost/<name>.key` (chmod 600), same pattern as hot wallet generation
+- **`ab up`**: Only changes the address; preserves existing `keyfile` if present
+- **`ab del`**: Removes the entry from JSON but does NOT delete the keyfile (if any)

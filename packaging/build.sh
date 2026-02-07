@@ -64,6 +64,30 @@ exec /usr/bin/node /usr/share/blockhost/bw.js "$@"
 BWEOF
 chmod 755 "$PKG_DIR/usr/bin/bw"
 
+# Bundle the ab CLI into a single JS file
+echo "Bundling ab CLI with esbuild..."
+npx esbuild "$PROJECT_DIR/src/ab/index.ts" \
+    --bundle \
+    --platform=node \
+    --target=node18 \
+    --minify \
+    --outfile="$PKG_DIR/usr/share/blockhost/ab.js"
+
+if [ ! -f "$PKG_DIR/usr/share/blockhost/ab.js" ]; then
+    echo "ERROR: Failed to create ab CLI bundle"
+    exit 1
+fi
+
+AB_SIZE=$(du -h "$PKG_DIR/usr/share/blockhost/ab.js" | cut -f1)
+echo "ab CLI bundle created: $AB_SIZE"
+
+# Create ab wrapper script
+cat > "$PKG_DIR/usr/bin/ab" << 'ABEOF'
+#!/bin/sh
+exec /usr/bin/node /usr/share/blockhost/ab.js "$@"
+ABEOF
+chmod 755 "$PKG_DIR/usr/bin/ab"
+
 # ============================================
 # Compile Solidity contracts with Foundry
 # ============================================
@@ -294,7 +318,9 @@ echo ""
 echo "Package contents:"
 echo "  /usr/share/blockhost/monitor.js - Bundled monitor ($MONITOR_SIZE)"
 echo "  /usr/share/blockhost/bw.js      - Bundled bw CLI ($BW_SIZE)"
+echo "  /usr/share/blockhost/ab.js      - Bundled ab CLI ($AB_SIZE)"
 echo "  /usr/bin/bw                     - Blockwallet CLI wrapper"
+echo "  /usr/bin/ab                     - Addressbook CLI wrapper"
 echo "  /usr/bin/blockhost-init         - Server initialization script"
 echo "  /usr/bin/blockhost-generate-signup - Signup page generator"
 echo "  /opt/blockhost/                 - Deployment scripts (require npm install)"

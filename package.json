@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "Subscription management system with EVM smart contracts and monitoring server",
   "bin": {
-    "bw": "./src/bw/index.ts"
+    "bw": "./src/bw/index.ts",
+    "ab": "./src/ab/index.ts"
   },
   "scripts": {
     "compile": "hardhat compile",
