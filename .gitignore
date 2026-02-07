@@ -52,6 +52,7 @@ logs/
 
 # Claude Code
 .claude/
+SPECIAL.md
 
 # Generated signup pages (contain config)
 signup.html

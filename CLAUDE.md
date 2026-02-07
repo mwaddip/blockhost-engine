@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## SPECIAL.md (HIGHEST PRIORITY)
+
+**Read and internalize `SPECIAL.md` at the start of every session.** It defines the S.P.E.C.I.A.L. analytical bias system — per-component attention weights that affect how you approach code. Apply the matching component profile based on which files you're working on:
+
+| Path pattern | Profile | Key biases |
+|---|---|---|
+| `src/root-agent/` | S8 P10 E7 C4 I8 A6 L7 | Security obsessive. Mirrors the root agent daemon. |
+| `src/fund-manager/` | S8 P8 E8 C5 I7 A6 L9 | Money + timing = max edge case paranoia. |
+| `src/bw/` | S8 P7 E6 C7 I6 A6 L7 | User-facing wallet ops. Funds at stake. |
+| `src/ab/` | S6 P6 E5 C7 I6 A5 L5 | Simple CRUD. Don't overthink it. |
+| everything else | S7 P7 E8 C5 I9 A7 L8 | Architectural discipline is survival. |
+
+These stats override your default attention distribution. High stats (8+) mean obsessive focus on that dimension. See `SPECIAL.md` for full definitions.
+
 ## Rules
 
 - **Documentation sync**: After completing any code change, check whether `README.md` or `CLAUDE.md` need updating to reflect the change. This includes new modules, changed APIs, new CLI commands, new configuration options, changed architecture, and new dependencies. Update the relevant docs before considering the task done.
