@@ -33,6 +33,8 @@ Blockchain-based VM hosting subscription system. Users purchase subscriptions on
 | `contracts/` | Solidity | Subscription smart contract with NFT minting |
 | `src/monitor/` | TypeScript | Blockchain event watcher |
 | `src/handlers/` | TypeScript | Event handlers calling VM provisioning |
+| `src/admin/` | TypeScript | On-chain admin commands (port knocking, etc.) |
+| `src/reconcile/` | TypeScript | NFT state reconciliation (periodic health check) |
 | `scripts/` | TS/Python/Bash | Deployment, signup page generation, server init |
 
 ## Prerequisites
@@ -141,9 +143,10 @@ VMs use NFT-based web3 authentication instead of passwords or SSH keys:
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `blockhost.yaml` | `/etc/blockhost/` | Server keypair, decrypt message |
+| `blockhost.yaml` | `/etc/blockhost/` | Server keypair, public secret, admin wallet |
 | `web3-defaults.yaml` | `/etc/blockhost/` | Blockchain config (chain ID, contracts, RPC) |
-| `vms.json` | `/var/lib/blockhost/` | VM database (IPs, VMIDs, expiry) |
+| `admin-commands.json` | `/etc/blockhost/` | Admin command definitions (port knocking, etc.) |
+| `vms.json` | `/var/lib/blockhost/` | VM database (IPs, VMIDs, reserved NFT tokens) |
 
 ## Development
 
@@ -178,10 +181,14 @@ blockhost-engine/
 │   └── signup-template.html
 ├── src/                       # TypeScript source
 │   ├── monitor/               # Blockchain event monitor
-│   └── handlers/              # Event handlers
+│   ├── handlers/              # Event handlers
+│   ├── admin/                 # On-chain admin command processing
+│   └── reconcile/             # NFT state reconciliation
 ├── test/                      # Contract tests
 ├── examples/                  # Deployment examples
 │   ├── blockhost-monitor.service
+│   ├── blockhost-admin.yaml.example
+│   ├── admin-commands.json.example
 │   └── env.example
 └── PROJECT.yaml               # Machine-readable spec
 ```

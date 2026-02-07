@@ -213,12 +213,13 @@ npm install
 | `/opt/blockhost/src/` | TypeScript source (monitor, handlers) |
 | `/var/lib/blockhost/terraform/` | Terraform working directory |
 | `/usr/lib/blockhost-provisioner/` | VM provisioning scripts |
-| `/etc/blockhost/blockhost.yaml` | Server configuration (keys, addresses) |
+| `/etc/blockhost/blockhost.yaml` | Server configuration (keys, public secret, admin wallet) |
 | `/etc/blockhost/web3-defaults.yaml` | Blockchain/NFT configuration |
+| `/etc/blockhost/admin-commands.json` | Admin command definitions (optional) |
 | `/etc/blockhost/db.yaml` | Database and IP pool configuration |
 | `/etc/blockhost/server.key` | Server private key (ECIES) |
 | `/etc/blockhost/deployer.key` | Deployer private key (NFT minting) |
-| `/var/lib/blockhost/vms.json` | VM database |
+| `/var/lib/blockhost/vms.json` | VM database (VMs, reserved NFT tokens) |
 
 ## VM Provisioning
 

@@ -45,8 +45,10 @@ blockhost-engine/
 ├── test/                # Contract tests
 ├── src/                 # TypeScript server source
 │   ├── monitor/         # Contract event polling & processing
-│   └── handlers/        # Event handlers (calls blockhost-provisioner scripts)
-└── examples/            # Deployment examples (systemd, env)
+│   ├── handlers/        # Event handlers (calls blockhost-provisioner scripts)
+│   ├── admin/           # On-chain admin commands (ECIES-encrypted, anti-replay)
+│   └── reconcile/       # Periodic NFT state reconciliation
+└── examples/            # Deployment examples (systemd, env, admin config)
 ```
 
 ### VM Naming Convention

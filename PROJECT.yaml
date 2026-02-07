@@ -35,6 +35,7 @@ components:
     description: |
       Polls blockchain for contract events and dispatches to handlers.
       Handlers call blockhost-provisioner scripts to provision/manage VMs.
+      Also processes admin commands and runs periodic NFT reconciliation.
 
     handlers:
       - event: SubscriptionCreated
@@ -43,6 +44,33 @@ components:
         action: Updates VM expiry in database
       - event: SubscriptionCancelled
         action: Destroys VM via Terraform
+
+    features:
+      - admin_commands: Processes ECIES-encrypted commands from admin wallet
+      - nft_reconciliation: Periodic check (5 min) to sync local NFT state with chain
+
+  admin_commands:
+    language: typescript
+    path: src/admin/
+    description: |
+      On-chain admin command infrastructure. Admin sends ECIES-encrypted
+      commands as transaction data from a configured wallet. Commands are
+      decrypted, validated (timestamp, nonce anti-replay), and dispatched.
+
+    config_files:
+      - /etc/blockhost/blockhost.yaml (admin.wallet_address, admin.destination_mode)
+      - /etc/blockhost/admin-commands.json (secret command name → action mapping)
+
+    actions:
+      - knock: Temporarily open firewall ports via iptables
+
+  reconcile:
+    language: typescript
+    path: src/reconcile/
+    description: |
+      Periodic NFT reconciliation to fix state drift from partial failures.
+      Compares on-chain totalSupply() with local reserved_nft_tokens map
+      and marks tokens as minted if they exist on-chain but not locally.
 
   signup_page:
     path: scripts/generate-signup-page.py
@@ -142,9 +170,10 @@ deployment:
       - blockhost-provisioner (VM provisioning scripts)
 
     config_files:
-      - /etc/blockhost/blockhost.yaml (server keypair, decrypt message)
+      - /etc/blockhost/blockhost.yaml (server keypair, public secret, admin wallet)
       - /etc/blockhost/web3-defaults.yaml (blockchain config)
-      - /var/lib/blockhost/vms.json (VM database)
+      - /etc/blockhost/admin-commands.json (admin command definitions)
+      - /var/lib/blockhost/vms.json (VM database with reserved_nft_tokens)
 
   vm:
     template: debian-12-web3-template (VMID 9001)
