@@ -71,3 +71,7 @@ vms.json
 packaging/*.deb
 packaging/blockhost-engine_*/
 packaging/.forge-build/
+
+# Forge install leaks
+.gitmodules
+lib/

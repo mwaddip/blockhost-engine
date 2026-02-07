@@ -10,6 +10,16 @@ PKG_DIR="$SCRIPT_DIR/$PKG_NAME"
 
 echo "Building blockhost-engine v${VERSION}..."
 
+# Clean up build artifacts on exit (success or failure)
+cleanup() {
+  rm -rf "$PKG_DIR"
+  rm -rf "$SCRIPT_DIR/.forge-build"
+  rm -f "$PROJECT_DIR/.gitmodules" 2>/dev/null || true
+  rm -rf "$PROJECT_DIR/contracts/lib" 2>/dev/null || true
+  rm -rf "$PROJECT_DIR/lib/forge-std" "$PROJECT_DIR/lib/openzeppelin-contracts" 2>/dev/null || true
+}
+trap cleanup EXIT
+
 # Clean and recreate package directory
 rm -rf "$PKG_DIR"
 mkdir -p "$PKG_DIR"/{DEBIAN,usr/bin,usr/share/blockhost/contracts,opt/blockhost/scripts,opt/blockhost/contracts/mocks,lib/systemd/system}
@@ -150,14 +160,6 @@ TOML
         ls -la "$FORGE_BUILD_DIR/out/" 2>/dev/null || true
     fi
 
-    # Cleanup forge build directory
-    rm -rf "$FORGE_BUILD_DIR"
-
-    # Cleanup any forge artifacts that may have leaked into project directory
-    # (forge install can sometimes affect the parent git repo)
-    rm -f "$PROJECT_DIR/.gitmodules" 2>/dev/null || true
-    rm -rf "$PROJECT_DIR/contracts/lib" 2>/dev/null || true
-    rm -rf "$PROJECT_DIR/lib/forge-std" "$PROJECT_DIR/lib/openzeppelin-contracts" 2>/dev/null || true
 else
     echo "WARNING: forge not found. Contract will not be pre-compiled."
     echo "         Install Foundry: curl -L https://foundry.paradigm.xyz | bash && foundryup"
@@ -274,24 +276,7 @@ cp "$PROJECT_DIR/contracts/mocks/"*.sol "$PKG_DIR/opt/blockhost/contracts/mocks/
 cp "$PROJECT_DIR/scripts/signup-template.html" "$PKG_DIR/usr/share/blockhost/"
 
 # Systemd service
-cat > "$PKG_DIR/lib/systemd/system/blockhost-monitor.service" << 'EOF'
-[Unit]
-Description=Blockhost Subscriptions Event Monitor
-After=network.target
-
-[Service]
-Type=simple
-Environment=HOME=/root
-EnvironmentFile=/opt/blockhost/.env
-ExecStart=/usr/bin/node /usr/share/blockhost/monitor.js
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
+cp "$PROJECT_DIR/examples/blockhost-monitor.service" "$PKG_DIR/lib/systemd/system/blockhost-monitor.service"
 
 # Example env
 cat > "$PKG_DIR/opt/blockhost/.env.example" << 'ENVEOF'
