@@ -38,6 +38,7 @@ Blockchain-based VM hosting subscription system. Users purchase subscriptions on
 | `src/fund-manager/` | TypeScript | Automated fund withdrawal, revenue sharing, gas management |
 | `src/bw/` | TypeScript | blockwallet CLI for scriptable wallet operations |
 | `src/ab/` | TypeScript | Addressbook CLI for managing wallet entries |
+| `src/root-agent/` | TypeScript | Client for the privileged root agent daemon |
 | `scripts/` | TS/Python/Bash | Deployment, signup page generation, server init |
 
 ## Prerequisites
@@ -236,6 +237,22 @@ ab list                      # Show all entries
 - **`ab up`**: Only changes the address; preserves existing `keyfile` if present
 - **`ab del`**: Removes the entry from JSON but does NOT delete the keyfile (if any)
 
+## Privilege Separation
+
+The monitor service runs as the unprivileged `blockhost` user. Operations that require root (iptables, writing key files to `/etc/blockhost/`, saving addressbook) are delegated to a separate **root agent daemon** (provided by `blockhost-common`) via a Unix socket at `/run/blockhost/root-agent.sock`.
+
+The TypeScript client (`src/root-agent/client.ts`) communicates using length-prefixed JSON (4-byte big-endian length + JSON payload). Available actions:
+
+| Action | Description |
+|--------|-------------|
+| `iptables-open` | Add an ACCEPT rule for a port |
+| `iptables-close` | Remove an ACCEPT rule for a port |
+| `generate-wallet` | Generate a keypair, save key to `/etc/blockhost/<name>.key`, update addressbook |
+| `addressbook-save` | Write addressbook entries to `/etc/blockhost/addressbook.json` |
+| `qm-start` | Start a Proxmox VM by VMID |
+
+The systemd service (`examples/blockhost-monitor.service`) declares a dependency on `blockhost-root-agent.service` and runs with `NoNewPrivileges=true` and `ProtectSystem=strict`.
+
 ## Development
 
 ```bash
@@ -274,7 +291,8 @@ blockhost-engine/
 │   ├── reconcile/             # NFT state reconciliation
 │   ├── fund-manager/          # Automated fund withdrawal & distribution
 │   ├── bw/                    # blockwallet CLI (send, balance, withdraw, swap, split)
-│   └── ab/                    # addressbook CLI (add, del, up, new, list)
+│   ├── ab/                    # addressbook CLI (add, del, up, new, list)
+│   └── root-agent/            # Root agent client (privilege separation)
 ├── test/                      # Contract tests
 ├── examples/                  # Deployment examples
 │   ├── blockhost-monitor.service

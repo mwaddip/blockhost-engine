@@ -33,7 +33,7 @@ function printUsage(): void {
   console.log("Reserved roles (immutable): server, admin, hot, dev, broker");
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
 
   if (!command || command === "--help" || command === "-h") {
@@ -43,16 +43,16 @@ function main(): void {
 
   switch (command) {
     case "add":
-      addCommand(args);
+      await addCommand(args);
       break;
     case "del":
-      delCommand(args);
+      await delCommand(args);
       break;
     case "up":
-      upCommand(args);
+      await upCommand(args);
       break;
     case "new":
-      newCommand(args);
+      await newCommand(args);
       break;
     case "list":
       listCommand();
@@ -64,4 +64,7 @@ function main(): void {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error(`Error: ${err.message}`);
+  process.exit(1);
+});

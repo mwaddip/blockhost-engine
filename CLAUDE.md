@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rules
+
+- **Documentation sync**: After completing any code change, check whether `README.md` or `CLAUDE.md` need updating to reflect the change. This includes new modules, changed APIs, new CLI commands, new configuration options, changed architecture, and new dependencies. Update the relevant docs before considering the task done.
+
 ## Project Overview
 
 blockhost-engine is the core component of a hosting subscription management system. It consists of:
@@ -12,6 +16,7 @@ blockhost-engine is the core component of a hosting subscription management syst
 4. **Fund Manager** (TypeScript) - Automated fund withdrawal, revenue sharing, and gas management
 5. **bw CLI** (TypeScript) - Scriptable wallet operations (`bw send`, `bw balance`, `bw withdraw`, `bw swap`, `bw split`)
 6. **ab CLI** (TypeScript) - Addressbook management (`ab add`, `ab del`, `ab up`, `ab new`, `ab list`)
+7. **Root Agent Client** (TypeScript) - Privilege separation client for the root agent daemon (iptables, key writes, addressbook saves)
 
 VM provisioning is handled by the separate `blockhost-provisioner` package.
 Shared configuration is provided by `blockhost-common`.
@@ -53,7 +58,8 @@ blockhost-engine/
 │   ├── reconcile/       # Periodic NFT state reconciliation
 │   ├── fund-manager/    # Automated fund withdrawal, distribution & gas management
 │   ├── bw/              # blockwallet CLI (send, balance, withdraw, swap, split)
-│   └── ab/              # addressbook CLI (add, del, up, new, list)
+│   ├── ab/              # addressbook CLI (add, del, up, new, list)
+│   └── root-agent/      # Root agent client (Unix socket, privilege separation)
 └── examples/            # Deployment examples (systemd, env, config)
 ```
 
@@ -200,3 +206,28 @@ ab list                      # Show all entries
 - **`ab new`**: Generates a keypair, saves private key to `/etc/blockhost/<name>.key` (chmod 600), same pattern as hot wallet generation
 - **`ab up`**: Only changes the address; preserves existing `keyfile` if present
 - **`ab del`**: Removes the entry from JSON but does NOT delete the keyfile (if any)
+
+## Privilege Separation (Root Agent)
+
+The monitor and CLIs run as the unprivileged `blockhost` user. Privileged operations are delegated to a root agent daemon (from `blockhost-common`) via Unix socket at `/run/blockhost/root-agent.sock`.
+
+### Protocol
+
+Length-prefixed JSON: 4-byte big-endian length + JSON payload (both directions).
+- Request: `{"action": "action-name", "params": {...}}`
+- Response: `{"ok": true, ...}` or `{"ok": false, "error": "reason"}`
+
+### Client (`src/root-agent/client.ts`)
+
+- `callRootAgent(action, params, timeout)` — generic call
+- `iptablesOpen(port, proto?, comment?)` / `iptablesClose(...)` — firewall rules (used by knock handler)
+- `generateWallet(name)` — key generation + addressbook update (used by fund-manager hot wallet, `ab new`)
+- `addressbookSave(entries)` — write addressbook.json (used by `ab add/del/up`, fund-manager)
+- `qmStart(vmid)` — start a Proxmox VM
+
+### What does NOT go through the root agent
+
+- Reading keyfiles and addressbook.json — works via group permission (`blockhost` group, mode 0640)
+- ECIES decryption (`pam_web3_tool`) — `blockhost` user can read `server.key` via group permission
+- VM provisioning scripts — provisioner runs as `blockhost`
+- Process checks (`pgrep`) — no privilege needed

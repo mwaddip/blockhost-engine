@@ -257,8 +257,8 @@ export function initAdminCommands(): void {
 /**
  * Cleanup on shutdown
  */
-export function shutdownAdminCommands(): void {
-  closeAllKnocks();
+export async function shutdownAdminCommands(): Promise<void> {
+  await closeAllKnocks();
   console.log(`[ADMIN] Admin command system shutdown`);
 }
 

@@ -239,11 +239,11 @@ async function main() {
   };
 
   // Handle graceful shutdown
-  process.on("SIGINT", () => {
+  process.on("SIGINT", async () => {
     console.log("\nShutting down monitor...");
     running = false;
     if (adminConfig) {
-      shutdownAdminCommands();
+      await shutdownAdminCommands();
     }
     setTimeout(() => process.exit(0), 1000);
   });

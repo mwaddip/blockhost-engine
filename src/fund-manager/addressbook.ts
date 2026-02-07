@@ -6,7 +6,8 @@
 import * as fs from "fs";
 import { ethers } from "ethers";
 import type { Addressbook, AddressbookEntry } from "./types";
-import { walletFromKeyfile, generateWallet } from "./wallet";
+import { walletFromKeyfile } from "./wallet";
+import { addressbookSave, generateWallet as rootAgentGenerateWallet } from "../root-agent/client";
 
 const ADDRESSBOOK_PATH = "/etc/blockhost/addressbook.json";
 const HOT_KEY_PATH = "/etc/blockhost/hot.key";
@@ -40,15 +41,11 @@ export function loadAddressbook(): Addressbook {
 }
 
 /**
- * Save addressbook back to disk
+ * Save addressbook via root agent
  */
-export function saveAddressbook(book: Addressbook): void {
+export async function saveAddressbook(book: Addressbook): Promise<void> {
   try {
-    const dir = ADDRESSBOOK_PATH.substring(0, ADDRESSBOOK_PATH.lastIndexOf("/"));
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(ADDRESSBOOK_PATH, JSON.stringify(book, null, 2));
+    await addressbookSave(book);
   } catch (err) {
     console.error(`[FUND] Error saving addressbook: ${err}`);
   }
@@ -106,22 +103,22 @@ export function resolveWallet(
 
 /**
  * Ensure the hot wallet exists in the addressbook.
- * Generates one if missing.
+ * Generates one via root agent if missing.
  */
-export function ensureHotWallet(book: Addressbook): Addressbook {
+export async function ensureHotWallet(book: Addressbook): Promise<Addressbook> {
   if (book.hot) {
     return book;
   }
 
-  console.log(`[FUND] Generating hot wallet...`);
-  const { address } = generateWallet(HOT_KEY_PATH);
+  console.log(`[FUND] Generating hot wallet via root agent...`);
+  const { address } = await rootAgentGenerateWallet("hot");
 
   book.hot = {
     address,
     keyfile: HOT_KEY_PATH,
   };
 
-  saveAddressbook(book);
+  await saveAddressbook(book);
   console.log(`[FUND] Generated hot wallet: ${address}`);
   return book;
 }

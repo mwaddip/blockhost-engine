@@ -5,9 +5,10 @@
  * and optionally monitors auth.log for successful SSH login.
  */
 
-import { execSync, spawn } from "child_process";
+import { spawn } from "child_process";
 import * as fs from "fs";
 import type { CommandResult, KnockParams, KnockActionConfig, ActiveKnock } from "../types";
+import { iptablesOpen, iptablesClose } from "../../root-agent/client";
 
 // Track active knocks in memory
 const activeKnocks: Map<string, ActiveKnock> = new Map();
@@ -62,14 +63,14 @@ export async function executeKnock(
   console.log(`[KNOCK] Opening ports ${ports.join(', ')} for ${duration}s (tx: ${txHash})`);
 
   try {
-    // Open ports via iptables
+    // Open ports via root agent
     for (const port of ports) {
-      openPort(port);
+      await openPort(port);
     }
 
     // Set timeout to close ports
-    const timeoutId = setTimeout(() => {
-      closeKnock(txHash, "timeout");
+    const timeoutId = setTimeout(async () => {
+      await closeKnock(txHash, "timeout");
     }, duration * 1000);
 
     // Track this knock
@@ -95,7 +96,7 @@ export async function executeKnock(
     // Clean up any partially opened ports
     for (const port of ports) {
       try {
-        closePort(port);
+        await closePort(port);
       } catch {
         // Ignore cleanup errors
       }
@@ -108,29 +109,21 @@ export async function executeKnock(
 }
 
 /**
- * Open a single port via iptables
+ * Open a single port via root agent
  */
-function openPort(port: number): void {
-  // Insert rule at position 1 (top of INPUT chain)
-  // Uses comment module to identify our rules for cleanup
-  const cmd = `iptables -I INPUT 1 -p tcp --dport ${port} -j ACCEPT -m comment --comment "${IPTABLES_COMMENT}"`;
-
-  console.log(`[KNOCK] Running: ${cmd}`);
-  execSync(cmd, { timeout: 5000 });
+async function openPort(port: number): Promise<void> {
+  console.log(`[KNOCK] Opening port ${port} via root agent`);
+  await iptablesOpen(port);
 }
 
 /**
- * Close a single port (remove our iptables rule)
+ * Close a single port via root agent
  */
-function closePort(port: number): void {
-  // Delete the rule we added
-  const cmd = `iptables -D INPUT -p tcp --dport ${port} -j ACCEPT -m comment --comment "${IPTABLES_COMMENT}"`;
-
-  console.log(`[KNOCK] Running: ${cmd}`);
+async function closePort(port: number): Promise<void> {
+  console.log(`[KNOCK] Closing port ${port} via root agent`);
   try {
-    execSync(cmd, { timeout: 5000 });
+    await iptablesClose(port);
   } catch (err) {
-    // Rule might not exist, that's OK
     console.warn(`[KNOCK] Could not remove rule for port ${port}: ${err}`);
   }
 }
@@ -138,7 +131,7 @@ function closePort(port: number): void {
 /**
  * Close a knock session (called on timeout or successful login)
  */
-function closeKnock(txHash: string, reason: string): void {
+async function closeKnock(txHash: string, reason: string): Promise<void> {
   const knock = activeKnocks.get(txHash);
   if (!knock) {
     return;
@@ -151,7 +144,7 @@ function closeKnock(txHash: string, reason: string): void {
 
   // Close all ports
   for (const port of knock.ports) {
-    closePort(port);
+    await closePort(port);
   }
 
   // Remove from active knocks
@@ -210,7 +203,9 @@ function startAuthLogMonitor(txHash: string, ports: number[]): void {
 
         // Close knock session after successful login
         tail.kill();
-        closeKnock(txHash, "ssh-login");
+        closeKnock(txHash, "ssh-login").catch((err) => {
+          console.warn(`[KNOCK] Error closing knock after SSH login: ${err}`);
+        });
         return;
       }
     }
@@ -242,9 +237,9 @@ export function getActiveKnocks(): ActiveKnock[] {
 /**
  * Close all active knocks (for shutdown)
  */
-export function closeAllKnocks(): void {
+export async function closeAllKnocks(): Promise<void> {
   console.log(`[KNOCK] Closing ${activeKnocks.size} active knock sessions`);
   for (const txHash of activeKnocks.keys()) {
-    closeKnock(txHash, "shutdown");
+    await closeKnock(txHash, "shutdown");
   }
 }

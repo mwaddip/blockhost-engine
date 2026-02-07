@@ -5,7 +5,7 @@
 import { loadAddressbook, saveAddressbook } from "../../fund-manager/addressbook";
 import { IMMUTABLE_ROLES } from "../index";
 
-export function delCommand(args: string[]): void {
+export async function delCommand(args: string[]): Promise<void> {
   if (args.length !== 1) {
     console.error("Usage: ab del <name>");
     process.exit(1);
@@ -26,6 +26,6 @@ export function delCommand(args: string[]): void {
   }
 
   delete book[name];
-  saveAddressbook(book);
+  await saveAddressbook(book);
   console.log(`Deleted '${name}' from addressbook.`);
 }

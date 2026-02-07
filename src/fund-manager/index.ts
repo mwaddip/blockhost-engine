@@ -96,7 +96,7 @@ export async function runFundCycle(provider: ethers.Provider): Promise<void> {
       console.error("[FUND] Addressbook empty, skipping fund cycle");
       return;
     }
-    book = ensureHotWallet(book);
+    book = await ensureHotWallet(book);
 
     const contract = getContract(contractAddress, provider);
 
