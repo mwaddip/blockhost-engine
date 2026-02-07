@@ -138,7 +138,7 @@ Auto-generated on first fund cycle if not in addressbook. Private key saved to `
 | `server_stablecoin_buffer_usd` | 50 | Target stablecoin balance for server wallet |
 | `hot_wallet_gas_eth` | 0.01 | Target ETH balance for hot wallet |
 
-**`/etc/blockhost/addressbook.json`** — role-to-wallet mapping (written by installer, managed via `ab` CLI):
+**`/etc/blockhost/addressbook.json`** — role-to-wallet mapping (written by installer):
 
 ```json
 {
