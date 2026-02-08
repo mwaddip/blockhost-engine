@@ -13,9 +13,6 @@ import { iptablesOpen, iptablesClose } from "../../root-agent/client";
 // Track active knocks in memory
 const activeKnocks: Map<string, ActiveKnock> = new Map();
 
-// Comment used to identify our iptables rules
-const IPTABLES_COMMENT = "blockhost-knock";
-
 /**
  * Execute the knock command
  */
@@ -225,13 +222,6 @@ function startAuthLogMonitor(txHash: string, ports: number[]): void {
   // Replace with wrapped timeout
   clearTimeout(originalTimeout);
   knock.timeoutId = wrappedTimeout;
-}
-
-/**
- * Get active knocks (for diagnostics)
- */
-export function getActiveKnocks(): ActiveKnock[] {
-  return Array.from(activeKnocks.values());
 }
 
 /**

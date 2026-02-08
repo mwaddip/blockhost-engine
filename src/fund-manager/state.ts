@@ -34,8 +34,9 @@ export function loadState(): FundManagerState {
     ensureDir();
     if (fs.existsSync(STATE_FILE)) {
       const data = fs.readFileSync(STATE_FILE, "utf8");
-      cachedState = { ...DEFAULT_STATE, ...JSON.parse(data) };
-      return cachedState;
+      const state: FundManagerState = { ...DEFAULT_STATE, ...JSON.parse(data) };
+      cachedState = state;
+      return state;
     }
   } catch (err) {
     console.error(`[FUND] Error loading state: ${err}`);

@@ -4,7 +4,7 @@
  * Handles decryption, validation, and dispatch of on-chain admin commands.
  */
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { ethers } from "ethers";
 import type { AdminCommand, AdminConfig, CommandResult, CommandDatabase } from "./types";
 import { loadCommandDatabase, checkDestination, getServerPrivateKeyPath, loadServerPublicKey } from "./config";
@@ -32,8 +32,9 @@ export function tryDecryptCommand(txData: string): string | null {
 
   try {
     // Use pam_web3_tool for ECIES decryption
-    const result = execSync(
-      `pam_web3_tool decrypt --private-key-file "${privateKeyPath}" --ciphertext "${ciphertext}"`,
+    const result = execFileSync(
+      "pam_web3_tool",
+      ["decrypt", "--private-key-file", privateKeyPath, "--ciphertext", ciphertext],
       { encoding: "utf8", timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] }
     );
     // Strip "Decrypted: " prefix if present

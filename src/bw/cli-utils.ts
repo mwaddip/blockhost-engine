@@ -72,10 +72,3 @@ export function formatUsd(value: number): string {
   return `$${value.toFixed(2)}`;
 }
 
-/**
- * Print a table row
- */
-export function printRow(label: string, value: string, extra?: string): void {
-  const line = `  ${label.padEnd(12)} ${value.padEnd(24)} ${extra || ""}`;
-  console.log(line);
-}

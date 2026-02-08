@@ -59,6 +59,7 @@ export async function callRootAgent(
     });
 
     socket.on("error", (err) => {
+      socket.destroy();
       reject(new RootAgentError(`Socket error: ${err.message}`));
     });
 
@@ -88,6 +89,3 @@ export async function addressbookSave(entries: Record<string, unknown>): Promise
   await callRootAgent("addressbook-save", { entries });
 }
 
-export async function qmStart(vmid: number): Promise<void> {
-  await callRootAgent("qm-start", { vmid });
-}

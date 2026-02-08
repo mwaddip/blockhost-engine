@@ -4,7 +4,7 @@
  */
 
 import { ethers } from "ethers";
-import { spawn, execSync } from "child_process";
+import { spawn, execFileSync } from "child_process";
 import * as fs from "fs";
 import * as yaml from "js-yaml";
 
@@ -95,8 +95,9 @@ function decryptUserSignature(userEncrypted: string): string | null {
 
   // Otherwise, try to decrypt with server's private key
   try {
-    const result = execSync(
-      `pam_web3_tool decrypt --private-key-file ${SERVER_PRIVATE_KEY_FILE} --ciphertext ${userEncrypted}`,
+    const result = execFileSync(
+      "pam_web3_tool",
+      ["decrypt", "--private-key-file", SERVER_PRIVATE_KEY_FILE, "--ciphertext", userEncrypted],
       { encoding: "utf8", timeout: 10000 }
     );
     // Strip "Decrypted: " prefix if present

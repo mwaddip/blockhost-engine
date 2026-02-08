@@ -10,10 +10,9 @@ import { resolveAddress } from "../../fund-manager/addressbook";
 import {
   getAllTokenBalances,
   getTokenBalance,
-  formatTokenBalance,
   ERC20_ABI,
 } from "../../fund-manager/token-utils";
-import { resolveToken, formatUsd, printRow } from "../cli-utils";
+import { resolveToken, formatUsd } from "../cli-utils";
 
 export async function balanceCommand(
   args: string[],
