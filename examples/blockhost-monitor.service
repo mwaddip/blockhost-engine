@@ -17,6 +17,7 @@ StandardOutput=journal
 StandardError=journal
 NoNewPrivileges=true
 ProtectSystem=strict
+PrivateTmp=true
 ReadWritePaths=/var/lib/blockhost
 
 [Install]
