@@ -52,6 +52,7 @@ logs/
 
 # Claude Code
 .claude/
+SESSION_CONTEXT.md
 
 # Generated signup pages (contain config)
 signup.html
