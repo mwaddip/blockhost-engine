@@ -22,8 +22,8 @@ These stats override your default attention distribution. High stats (8+) mean o
 
 | Contract | Covers | Read when... |
 |----------|--------|-------------|
-| `PROVISIONER_INTERFACE.md` | The provisioner contract — CLI commands dispatched by this engine, JSON output formats, manifest schema | Changing provisioner dispatch, parsing VM create output, adding new provisioner verbs |
-| `COMMON_INTERFACE.md` | blockhost-common's public API — config, vm_db, root_agent | Using any import from `blockhost.*` or reading config files |
+| `facts/PROVISIONER_INTERFACE.md` | The provisioner contract — CLI commands dispatched by this engine, JSON output formats, manifest schema | Changing provisioner dispatch, parsing VM create output, adding new provisioner verbs |
+| `facts/COMMON_INTERFACE.md` | blockhost-common's public API — config, vm_db, root_agent | Using any import from `blockhost.*` or reading config files |
 
 **The engine is a consumer of both contracts.** It dispatches to provisioner CLI commands (via manifest) and imports from common. If either contract changes, engine code may need updating.
 
