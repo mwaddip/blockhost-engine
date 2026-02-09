@@ -134,6 +134,139 @@ function runCommand(command: string, args: string[]): Promise<{ stdout: string; 
   });
 }
 
+/** Summary JSON emitted by blockhost-vm-create --no-mint */
+interface VmCreateSummary {
+  status: string;
+  vm_name: string;
+  ip: string;
+  ipv6?: string;
+  vmid: number;
+  nft_token_id: number;
+  username: string;
+}
+
+/**
+ * Parse the JSON summary line from blockhost-vm-create stdout.
+ * The summary is the last line starting with '{'.
+ */
+function parseVmSummary(stdout: string): VmCreateSummary | null {
+  const lines = stdout.trim().split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (line.startsWith("{")) {
+      try {
+        return JSON.parse(line) as VmCreateSummary;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Encrypt connection details using the user's signature (symmetric encryption).
+ * Returns the encrypted hex string and public secret, or null on failure.
+ */
+function encryptConnectionDetails(
+  userSignature: string,
+  hostname: string,
+  username: string
+): { userEncrypted: string; publicSecret: string } | null {
+  const connectionDetails = JSON.stringify({
+    hostname,
+    port: 22,
+    username,
+  });
+
+  try {
+    const result = execFileSync("pam_web3_tool", [
+      "encrypt-symmetric",
+      "--signature", userSignature,
+      "--plaintext", connectionDetails,
+    ], { encoding: "utf8", timeout: 10000 });
+
+    const hexMatch = result.match(/0x[0-9a-fA-F]+/);
+    if (!hexMatch) {
+      console.error("[ERROR] No hex data in encrypt-symmetric output");
+      return null;
+    }
+
+    return {
+      userEncrypted: hexMatch[0],
+      publicSecret: getPublicSecret(),
+    };
+  } catch (err) {
+    console.error(`[ERROR] Failed to encrypt connection details: ${err}`);
+    return null;
+  }
+}
+
+/**
+ * Mark an NFT as minted in the VM database (fire-and-forget).
+ */
+function markNftMinted(nftTokenId: number, ownerWallet: string): void {
+  const script = `
+from blockhost.vm_db import get_database
+db = get_database()
+db.mark_nft_minted(${nftTokenId}, "${ownerWallet}")
+`;
+  const proc = spawn("python3", ["-c", script], { cwd: WORKING_DIR });
+  proc.on("close", (code) => {
+    if (code !== 0) {
+      console.error(`[WARN] Failed to mark NFT ${nftTokenId} as minted in database`);
+    }
+  });
+}
+
+/**
+ * Destroy a VM via Terraform (remove .tf.json + apply).
+ * Phase 3 will replace this with a provisioner manifest call.
+ */
+function destroyVm(vmName: string): Promise<{ success: boolean; output: string }> {
+  return new Promise((resolve) => {
+    const script = `
+import subprocess
+import os
+from blockhost.vm_db import get_database
+from blockhost.config import load_db_config
+
+db = get_database()
+db_config = load_db_config()
+vm = db.get_vm('${vmName}')
+if vm:
+    tf_dir = db_config.get('terraform_dir', '/var/lib/blockhost/terraform')
+    tf_file = os.path.join(tf_dir, '${vmName}.tf.json')
+    if os.path.exists(tf_file):
+        os.remove(tf_file)
+        result = subprocess.run(
+            ['terraform', 'apply', '-auto-approve'],
+            cwd=tf_dir,
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            db.mark_destroyed('${vmName}')
+            print(f"VM ${vmName} destroyed successfully")
+        else:
+            print(f"Terraform error: {result.stderr}")
+    else:
+        print(f"VM config ${vmName}.tf.json not found")
+        db.mark_destroyed('${vmName}')
+else:
+    print(f"VM ${vmName} not found in database")
+`;
+
+    const proc = spawn("python3", ["-c", script], { cwd: WORKING_DIR });
+    let output = "";
+    proc.stdout.on("data", (data) => { output += data.toString(); });
+    proc.stderr.on("data", (data) => { output += data.toString(); });
+    proc.on("close", (code) => {
+      resolve({ success: code === 0, output: output.trim() });
+    });
+  });
+}
+
 export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent, txHash: string): Promise<void> {
   const vmName = formatVmName(event.subscriptionId);
   const expiryDays = calculateExpiryDays(event.expiresAt);
@@ -151,38 +284,89 @@ export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent,
   console.log(`Provisioning VM: ${vmName}`);
   console.log(`Expiry: ${expiryDays} days`);
 
-  // Build blockhost-vm-create arguments
-  const args = [
-    vmName,
-    "--owner-wallet", event.subscriber,
-    "--expiry-days", expiryDays.toString(),
-    "--apply",
-  ];
-
-  // Decrypt user signature if provided
+  // Decrypt user signature if provided (needed for connection detail encryption)
+  let userSignature: string | null = null;
   if (event.userEncrypted && event.userEncrypted !== "0x") {
     console.log("Decrypting user signature...");
-    const userSignature = decryptUserSignature(event.userEncrypted);
+    userSignature = decryptUserSignature(event.userEncrypted);
     if (userSignature) {
       console.log("User signature decrypted successfully");
-      args.push("--user-signature", userSignature);
-      // Use static publicSecret from config (same for all users)
-      const publicSecret = getPublicSecret();
-      args.push("--public-secret", publicSecret);
     } else {
       console.warn("[WARN] Could not decrypt user signature, proceeding without encrypted connection details");
     }
   }
 
-  // Call blockhost-vm-create (provided by blockhost-provisioner package)
-  const result = await runCommand("blockhost-vm-create", args);
+  // Step 1: Create VM (without minting — engine handles NFT separately)
+  const createArgs = [
+    vmName,
+    "--owner-wallet", event.subscriber,
+    "--expiry-days", expiryDays.toString(),
+    "--no-mint",
+    "--apply",
+  ];
 
-  if (result.code === 0) {
-    console.log(`[OK] VM ${vmName} provisioned successfully`);
-    console.log(result.stdout);
-  } else {
+  console.log("Creating VM (--no-mint)...");
+  const result = await runCommand("blockhost-vm-create", createArgs);
+
+  if (result.code !== 0) {
     console.error(`[ERROR] Failed to provision VM ${vmName}`);
     console.error(result.stderr || result.stdout);
+    console.log("==========================================\n");
+    return;
+  }
+
+  console.log(`[OK] VM ${vmName} provisioned successfully`);
+
+  // Step 2: Parse JSON summary from provisioner output
+  const summary = parseVmSummary(result.stdout);
+  if (!summary) {
+    // Old provisioner: no JSON summary, minting was handled inline
+    console.log("[INFO] No JSON summary from provisioner (legacy mode — minting handled by provisioner)");
+    console.log(result.stdout);
+    console.log("==========================================\n");
+    return;
+  }
+
+  console.log(`[INFO] VM summary: ip=${summary.ip}, vmid=${summary.vmid}, token=${summary.nft_token_id}`);
+
+  // Step 3: Encrypt connection details using user's signature
+  let userEncrypted = "0x";
+  let publicSecret = "";
+
+  if (userSignature) {
+    const hostname = summary.ipv6 || summary.ip;
+    const encrypted = encryptConnectionDetails(userSignature, hostname, summary.username);
+    if (encrypted) {
+      userEncrypted = encrypted.userEncrypted;
+      publicSecret = encrypted.publicSecret;
+      console.log("[OK] Connection details encrypted");
+    } else {
+      console.warn("[WARN] Failed to encrypt connection details, minting without user data");
+    }
+  }
+
+  // Step 4: Mint NFT (separate from VM creation)
+  const mintArgs = [
+    "--owner-wallet", event.subscriber,
+    "--machine-id", summary.vm_name,
+  ];
+  if (userEncrypted !== "0x") {
+    mintArgs.push("--user-encrypted", userEncrypted);
+    mintArgs.push("--public-secret", publicSecret);
+  }
+
+  console.log("Minting NFT...");
+  const mintResult = await runCommand("blockhost-mint-nft", mintArgs);
+
+  if (mintResult.code === 0) {
+    console.log(`[OK] NFT minted for ${vmName}`);
+    markNftMinted(summary.nft_token_id, event.subscriber);
+  } else {
+    // VM exists and is functional, but NFT minting failed
+    // Operator can retry: blockhost-mint-nft --owner-wallet 0x... --machine-id blockhost-001
+    console.error(`[WARN] NFT minting failed for ${vmName} (VM is still operational)`);
+    console.error(mintResult.stderr || mintResult.stdout);
+    console.error(`[WARN] Retry manually: blockhost-mint-nft --owner-wallet ${event.subscriber} --machine-id ${summary.vm_name}`);
   }
 
   console.log("==========================================\n");
@@ -284,59 +468,13 @@ export async function handleSubscriptionCancelled(event: SubscriptionCancelledEv
   console.log("--------------------------------------------");
   console.log(`Destroying VM: ${vmName}`);
 
-  // Mark VM for immediate destruction using vm-gc.py with specific VM
-  // For now, we'll mark it as destroyed in the database and let terraform destroy it
-  const script = `
-import subprocess
-import os
-from blockhost.vm_db import get_database
-from blockhost.config import load_db_config
+  const { success, output } = await destroyVm(vmName);
 
-db = get_database()
-db_config = load_db_config()
-vm = db.get_vm('${vmName}')
-if vm:
-    # Run terraform destroy for this specific VM
-    tf_dir = db_config.get('terraform_dir', '/var/lib/blockhost/terraform')
-    tf_file = os.path.join(tf_dir, '${vmName}.tf.json')
-
-    if os.path.exists(tf_file):
-        # Remove the tf.json file and run terraform apply to destroy
-        os.remove(tf_file)
-        result = subprocess.run(
-            ['terraform', 'apply', '-auto-approve'],
-            cwd=tf_dir,
-            capture_output=True,
-            text=True
-        )
-        if result.returncode == 0:
-            db.mark_destroyed('${vmName}')
-            print(f"VM ${vmName} destroyed successfully")
-        else:
-            print(f"Terraform error: {result.stderr}")
-    else:
-        print(f"VM config ${vmName}.tf.json not found")
-        db.mark_destroyed('${vmName}')
-else:
-    print(f"VM ${vmName} not found in database")
-`;
-
-  const proc = spawn("python3", ["-c", script], { cwd: WORKING_DIR });
-
-  let output = "";
-  proc.stdout.on("data", (data) => { output += data.toString(); });
-  proc.stderr.on("data", (data) => { output += data.toString(); });
-
-  await new Promise<void>((resolve) => {
-    proc.on("close", (code) => {
-      if (code === 0) {
-        console.log(`[OK] ${output.trim()}`);
-      } else {
-        console.error(`[ERROR] Failed to destroy VM: ${output}`);
-      }
-      resolve();
-    });
-  });
+  if (success) {
+    console.log(`[OK] ${output}`);
+  } else {
+    console.error(`[ERROR] Failed to destroy VM: ${output}`);
+  }
 
   console.log("============================================\n");
 }
