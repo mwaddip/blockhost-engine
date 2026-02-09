@@ -7,6 +7,7 @@ import { ethers } from "ethers";
 import { spawn, execFileSync } from "child_process";
 import * as fs from "fs";
 import * as yaml from "js-yaml";
+import { getCommand } from "../provisioner";
 
 // Paths on the server
 const WORKING_DIR = "/var/lib/blockhost";
@@ -306,7 +307,7 @@ export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent,
   ];
 
   console.log("Creating VM (--no-mint)...");
-  const result = await runCommand("blockhost-vm-create", createArgs);
+  const result = await runCommand(getCommand("create"), createArgs);
 
   if (result.code !== 0) {
     console.error(`[ERROR] Failed to provision VM ${vmName}`);
@@ -429,7 +430,7 @@ else:
   if (needsResume) {
     console.log(`Resuming suspended VM: ${vmName}`);
 
-    const resumeProc = spawn("blockhost-vm-resume", [vmName], { cwd: WORKING_DIR });
+    const resumeProc = spawn(getCommand("resume"), [vmName], { cwd: WORKING_DIR });
 
     let resumeOutput = "";
     resumeProc.stdout.on("data", (data) => { resumeOutput += data.toString(); });

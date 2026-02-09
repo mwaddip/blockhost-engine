@@ -9,6 +9,7 @@ import { ethers } from "ethers";
 import { execSync, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as yaml from "js-yaml";
+import { getCommand } from "../provisioner";
 
 const VMS_JSON_PATH = "/var/lib/blockhost/vms.json";
 const WEB3_CONFIG_PATH = "/etc/blockhost/web3-defaults.yaml";
@@ -41,12 +42,11 @@ let lastReconcileTime = 0;
 let reconcileInProgress = false;
 
 /**
- * Check if blockhost-vm-create is currently running
+ * Check if the provisioner's create command is currently running
  */
 function isProvisioningInProgress(): boolean {
   try {
-    // Check for running blockhost-vm-create processes
-    const result = spawnSync("pgrep", ["-f", "blockhost-vm-create"], {
+    const result = spawnSync("pgrep", ["-f", getCommand("create")], {
       encoding: "utf8",
     });
     if (result.stdout && result.stdout.trim()) {
