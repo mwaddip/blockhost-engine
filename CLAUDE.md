@@ -16,6 +16,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 These stats override your default attention distribution. High stats (8+) mean obsessive focus on that dimension. See `SPECIAL.md` for full definitions.
 
+## Interface Contracts (REFERENCE)
+
+**Contract specs define how this package interfaces with the rest of the system.** Read and internalize the relevant contract before modifying provisioner dispatch, VM lifecycle handlers, or any code that calls blockhost-common functions. Do not rely on assumptions — read the contract.
+
+| Contract | Covers | Read when... |
+|----------|--------|-------------|
+| `PROVISIONER_INTERFACE.md` | The provisioner contract — CLI commands dispatched by this engine, JSON output formats, manifest schema | Changing provisioner dispatch, parsing VM create output, adding new provisioner verbs |
+| `COMMON_INTERFACE.md` | blockhost-common's public API — config, vm_db, root_agent | Using any import from `blockhost.*` or reading config files |
+
+**The engine is a consumer of both contracts.** It dispatches to provisioner CLI commands (via manifest) and imports from common. If either contract changes, engine code may need updating.
+
+## Interface Integrity (PERSISTENT RULE)
+
+**When interfaces don't match, fix the interface — never wrap the mismatch.** If the provisioner's JSON output doesn't match what you expect, the contract needs updating — don't add parsing hacks.
+
 ## Rules
 
 - **Documentation sync**: After completing any code change, check whether `README.md` or `CLAUDE.md` need updating to reflect the change. This includes new modules, changed APIs, new CLI commands, new configuration options, changed architecture, and new dependencies. Update the relevant docs before considering the task done.
