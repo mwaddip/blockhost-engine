@@ -74,8 +74,8 @@ Install packages in dependency order:
 # 1. blockhost-common (provides config directories and Python modules)
 dpkg -i blockhost-common_*.deb
 
-# 2. blockhost-provisioner (provides VM provisioning scripts)
-dpkg -i blockhost-provisioner_*.deb
+# 2. blockhost-provisioner-proxmox (provides VM provisioning scripts)
+dpkg -i blockhost-provisioner-proxmox_*.deb
 
 # 3. blockhost-engine (provides monitor service)
 dpkg -i blockhost-engine_*.deb
@@ -84,7 +84,7 @@ dpkg -i blockhost-engine_*.deb
 This creates the directory structure automatically:
 - `/etc/blockhost/` - Configuration files
 - `/var/lib/blockhost/` - Data and terraform working directory
-- `/usr/lib/blockhost-provisioner/` - VM provisioning scripts
+- `/usr/lib/blockhost-provisioner-proxmox/` - VM provisioning scripts
 
 ### 3. Installed File Structure
 
@@ -100,8 +100,8 @@ After installing the packages, the following structure is created:
 ├── terraform/                # Terraform working directory
 └── vms.json                  # VM database (initialized by blockhost-init)
 
-# Provided by blockhost-provisioner:
-/usr/lib/blockhost-provisioner/
+# Provided by blockhost-provisioner-proxmox:
+/usr/lib/blockhost-provisioner-proxmox/
 ├── scripts/                  # VM provisioning scripts
 └── cloud-init/               # Cloud-init templates
 
@@ -212,7 +212,7 @@ npm install
 | `/opt/blockhost/start.sh` | Monitor startup script |
 | `/opt/blockhost/src/` | TypeScript source (monitor, handlers) |
 | `/var/lib/blockhost/terraform/` | Terraform working directory |
-| `/usr/lib/blockhost-provisioner/` | VM provisioning scripts |
+| `/usr/lib/blockhost-provisioner-proxmox/` | VM provisioning scripts |
 | `/etc/blockhost/blockhost.yaml` | Server configuration (keys, public secret, admin wallet) |
 | `/etc/blockhost/web3-defaults.yaml` | Blockchain/NFT configuration |
 | `/etc/blockhost/admin-commands.json` | Admin command definitions (optional) |
@@ -223,7 +223,7 @@ npm install
 
 ## VM Provisioning
 
-VM provisioning scripts are provided by the `blockhost-provisioner` package.
+VM provisioning scripts are provided by the `blockhost-provisioner-proxmox` package.
 
 ### Initialize Terraform
 
@@ -236,11 +236,11 @@ terraform init
 
 ```bash
 # Test VM generator (mock mode)
-python3 /usr/lib/blockhost-provisioner/scripts/vm-generator.py test-vm --owner-wallet 0x... --mock --skip-mint
+python3 /usr/lib/blockhost-provisioner-proxmox/scripts/vm-generator.py test-vm --owner-wallet 0x... --mock --skip-mint
 
 # Create a real VM
-python3 /usr/lib/blockhost-provisioner/scripts/vm-generator.py myvm --owner-wallet 0x... --apply
+python3 /usr/lib/blockhost-provisioner-proxmox/scripts/vm-generator.py myvm --owner-wallet 0x... --apply
 
 # Garbage collect expired VMs
-python3 /usr/lib/blockhost-provisioner/scripts/vm-gc.py --execute --grace-days 3
+python3 /usr/lib/blockhost-provisioner-proxmox/scripts/vm-gc.py --execute --grace-days 3
 ```

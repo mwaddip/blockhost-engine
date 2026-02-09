@@ -180,7 +180,7 @@ Section: admin
 Priority: optional
 Architecture: all
 Depends: blockhost-common (>= 0.1.0), libpam-web3-tools (>= 0.5.0), nodejs (>= 18), python3 (>= 3.10)
-Recommends: blockhost-provisioner (>= 0.1.0)
+Recommends: blockhost-provisioner-proxmox (>= 0.1.0)
 Maintainer: Blockhost <admin@blockhost.io>
 Description: Blockchain-based VM hosting subscription engine
  Blockhost Engine provides the core subscription management system:

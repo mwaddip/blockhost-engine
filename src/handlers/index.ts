@@ -1,6 +1,6 @@
 /**
  * Event handlers for BlockhostSubscriptions contract events
- * Calls blockhost-provisioner scripts to provision/manage VMs
+ * Calls blockhost-provisioner-proxmox scripts to provision/manage VMs
  */
 
 import { ethers } from "ethers";

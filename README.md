@@ -49,7 +49,7 @@ The engine discovers provisioner commands via a manifest file (`/usr/share/block
 - Python 3.10+
 - Foundry (forge/cast) for NFT contract deployment
 - `blockhost-common` package (shared configuration)
-- A provisioner package (e.g. `blockhost-provisioner` for Proxmox) with a manifest
+- A provisioner package (e.g. `blockhost-provisioner-proxmox`) with a manifest
 - `libpam-web3-tools` >= 0.4.0 (provides NFT contract and signing page)
 
 ## Quick Start
@@ -310,6 +310,6 @@ MIT
 ## Related Packages
 
 - `blockhost-common` - Shared configuration and Python modules
-- `blockhost-provisioner` - VM provisioning scripts (Proxmox/Terraform)
+- `blockhost-provisioner-proxmox` - VM provisioning scripts (Proxmox/Terraform)
 - `libpam-web3-tools` - NFT contract, signing page, and CLI tools
 - `libpam-web3` - PAM module for web3 authentication (installed on VMs)

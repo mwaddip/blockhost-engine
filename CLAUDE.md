@@ -32,7 +32,7 @@ blockhost-engine is the core component of a hosting subscription management syst
 6. **ab CLI** (TypeScript) - Addressbook management (`ab add`, `ab del`, `ab up`, `ab new`, `ab list`)
 7. **Root Agent Client** (TypeScript) - Privilege separation client for the root agent daemon (iptables, key writes, addressbook saves)
 
-VM provisioning is handled by the separate `blockhost-provisioner` package.
+VM provisioning is handled by the separate `blockhost-provisioner-proxmox` package.
 Shared configuration is provided by `blockhost-common`.
 
 ## Build Commands
@@ -67,7 +67,7 @@ blockhost-engine/
 ├── test/                # Contract tests
 ├── src/                 # TypeScript server source
 │   ├── monitor/         # Contract event polling & processing
-│   ├── handlers/        # Event handlers (calls blockhost-provisioner scripts)
+│   ├── handlers/        # Event handlers (calls blockhost-provisioner-proxmox scripts)
 │   ├── admin/           # On-chain admin commands (ECIES-encrypted, anti-replay)
 │   ├── reconcile/       # Periodic NFT state reconciliation
 │   ├── fund-manager/    # Automated fund withdrawal, distribution & gas management

@@ -122,7 +122,7 @@ function saveVmsDatabase(db: VmsDatabase): boolean {
 }
 
 /**
- * Update local state using Python (for consistency with blockhost-provisioner)
+ * Update local state using Python (for consistency with blockhost-provisioner-proxmox)
  */
 function markTokenMintedViaPython(tokenId: number, vmName: string): boolean {
   const script = `

@@ -21,7 +21,7 @@ components:
     key_events:
       - name: SubscriptionCreated
         fields: [subscriptionId, planId, subscriber, expiresAt, paidAmount, paymentToken, userEncrypted]
-        triggers: VM provisioning via blockhost-provisioner
+        triggers: VM provisioning via blockhost-provisioner-proxmox
       - name: SubscriptionExtended
         fields: [subscriptionId, planId, extendedBy, newExpiresAt, paidAmount, paymentToken]
         triggers: Update VM expiry in database
@@ -34,7 +34,7 @@ components:
     entry_point: src/monitor/index.ts
     description: |
       Polls blockchain for contract events and dispatches to handlers.
-      Handlers call blockhost-provisioner scripts to provision/manage VMs.
+      Handlers call blockhost-provisioner-proxmox scripts to provision/manage VMs.
       Also processes admin commands and runs periodic NFT reconciliation.
 
     handlers:
@@ -95,9 +95,9 @@ dependencies:
       Provides /etc/blockhost/, /var/lib/blockhost/, and the blockhost
       Python package for config loading and VM database access.
 
-  blockhost-provisioner:
-    package: blockhost-provisioner
-    install_path: /usr/lib/blockhost-provisioner
+  blockhost-provisioner-proxmox:
+    package: blockhost-provisioner-proxmox
+    install_path: /usr/lib/blockhost-provisioner-proxmox
     description: |
       VM provisioning scripts for Proxmox. Creates VMs with cloud-init
       configured for NFT-based web3 SSH authentication.
@@ -167,7 +167,7 @@ deployment:
       - blockhost-monitor (systemd service watching blockchain)
     requires:
       - blockhost-common (config directories and Python modules)
-      - blockhost-provisioner (VM provisioning scripts)
+      - blockhost-provisioner-proxmox (VM provisioning scripts)
 
     config_files:
       - /etc/blockhost/blockhost.yaml (server keypair, public secret, admin wallet)
@@ -203,7 +203,7 @@ workflow: |
 integration:
   setup_steps:
     - Install blockhost-common (provides config directories and Python modules)
-    - Install blockhost-provisioner (provides VM provisioning scripts)
+    - Install blockhost-provisioner-proxmox (provides VM provisioning scripts)
     - Install blockhost-engine
     - Run blockhost-init to generate server keypair and config
     - Deploy contract: npm run deploy:sepolia (or use deployed address)
@@ -213,5 +213,5 @@ integration:
 
   vm_provisioning:
     description: |
-      The monitor calls vm-generator.py from the blockhost-provisioner package.
-      Scripts are installed at /usr/lib/blockhost-provisioner/scripts/
+      The monitor calls vm-generator.py from the blockhost-provisioner-proxmox package.
+      Scripts are installed at /usr/lib/blockhost-provisioner-proxmox/scripts/
