@@ -14,8 +14,6 @@ set -euo pipefail
 # Configuration directories (provided by blockhost-common)
 CONFIG_DIR="/etc/blockhost"
 DATA_DIR="/var/lib/blockhost"
-TERRAFORM_DIR="/var/lib/blockhost/terraform"
-
 # Files owned by blockhost-engine
 SERVER_KEY_FILE="${CONFIG_DIR}/server.key"
 DEPLOYER_KEY_FILE="${CONFIG_DIR}/deployer.key"
@@ -99,12 +97,6 @@ echo "========================================"
 echo "  Blockhost Server Initialization"
 echo "========================================"
 echo ""
-
-# Create terraform working directory if it doesn't exist
-if [[ ! -d "${TERRAFORM_DIR}" ]]; then
-    echo "Creating terraform directory: ${TERRAFORM_DIR}"
-    mkdir -p "${TERRAFORM_DIR}"
-fi
 
 # Check if already initialized
 if [[ -f "${SERVER_KEY_FILE}" ]]; then

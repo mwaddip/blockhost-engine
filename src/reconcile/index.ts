@@ -33,7 +33,6 @@ interface VmEntry {
 
 interface VmsDatabase {
   vms: Record<string, VmEntry>;
-  next_vmid: number;
   allocated_ips: string[];
   reserved_nft_tokens?: Record<string, { vm_name: string; minted: boolean }>;
 }

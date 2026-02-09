@@ -221,51 +221,14 @@ db.mark_nft_minted(${nftTokenId}, "${ownerWallet}")
 }
 
 /**
- * Destroy a VM via Terraform (remove .tf.json + apply).
- * Phase 3 will replace this with a provisioner manifest call.
+ * Destroy a VM via the provisioner's destroy command.
  */
-function destroyVm(vmName: string): Promise<{ success: boolean; output: string }> {
-  return new Promise((resolve) => {
-    const script = `
-import subprocess
-import os
-from blockhost.vm_db import get_database
-from blockhost.config import load_db_config
-
-db = get_database()
-db_config = load_db_config()
-vm = db.get_vm('${vmName}')
-if vm:
-    tf_dir = db_config.get('terraform_dir', '/var/lib/blockhost/terraform')
-    tf_file = os.path.join(tf_dir, '${vmName}.tf.json')
-    if os.path.exists(tf_file):
-        os.remove(tf_file)
-        result = subprocess.run(
-            ['terraform', 'apply', '-auto-approve'],
-            cwd=tf_dir,
-            capture_output=True,
-            text=True
-        )
-        if result.returncode == 0:
-            db.mark_destroyed('${vmName}')
-            print(f"VM ${vmName} destroyed successfully")
-        else:
-            print(f"Terraform error: {result.stderr}")
-    else:
-        print(f"VM config ${vmName}.tf.json not found")
-        db.mark_destroyed('${vmName}')
-else:
-    print(f"VM ${vmName} not found in database")
-`;
-
-    const proc = spawn("python3", ["-c", script], { cwd: WORKING_DIR });
-    let output = "";
-    proc.stdout.on("data", (data) => { output += data.toString(); });
-    proc.stderr.on("data", (data) => { output += data.toString(); });
-    proc.on("close", (code) => {
-      resolve({ success: code === 0, output: output.trim() });
-    });
-  });
+async function destroyVm(vmName: string): Promise<{ success: boolean; output: string }> {
+  const result = await runCommand(getCommand("destroy"), [vmName]);
+  return {
+    success: result.code === 0,
+    output: (result.code === 0 ? result.stdout : result.stderr || result.stdout).trim(),
+  };
 }
 
 export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent, txHash: string): Promise<void> {

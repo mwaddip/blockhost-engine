@@ -21,10 +21,12 @@ Blockchain-based VM hosting subscription system. Users purchase subscriptions on
                                                           │
                                                           ▼
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   User's VM     │◀────│  Proxmox Host    │◀────│  vm-generator   │
-│   (web3 auth)   │     │  (Terraform)     │     │  (Python)       │
+│   User's VM     │◀────│  Provisioner     │◀────│  Engine         │
+│   (web3 auth)   │     │  (pluggable)     │     │  (manifest)     │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
 ```
+
+The engine discovers provisioner commands via a manifest file (`/usr/share/blockhost/provisioner.json`). VMs are identified by name (`blockhost-001`), not by backend-specific IDs. Different provisioner backends (Proxmox, cloud, etc.) can be used without engine changes.
 
 ## Components
 
@@ -46,9 +48,8 @@ Blockchain-based VM hosting subscription system. Users purchase subscriptions on
 - Node.js 18+
 - Python 3.10+
 - Foundry (forge/cast) for NFT contract deployment
-- Proxmox VE 8+ with Terraform
 - `blockhost-common` package (shared configuration)
-- `blockhost-provisioner` package (VM provisioning)
+- A provisioner package (e.g. `blockhost-provisioner` for Proxmox) with a manifest
 - `libpam-web3-tools` >= 0.4.0 (provides NFT contract and signing page)
 
 ## Quick Start
