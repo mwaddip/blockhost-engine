@@ -45,7 +45,8 @@ blockhost-engine is the core component of a hosting subscription management syst
 4. **Fund Manager** (TypeScript) - Automated fund withdrawal, revenue sharing, and gas management
 5. **bw CLI** (TypeScript) - Scriptable wallet operations (`bw send`, `bw balance`, `bw withdraw`, `bw swap`, `bw split`)
 6. **ab CLI** (TypeScript) - Addressbook management (`ab add`, `ab del`, `ab up`, `ab new`, `ab list`)
-7. **Root Agent Client** (TypeScript) - Privilege separation client for the root agent daemon (iptables, key writes, addressbook saves)
+7. **NFT Minting** (Python) - `blockhost-mint-nft` CLI, mints access credential NFTs via Foundry's `cast`
+8. **Root Agent Client** (TypeScript) - Privilege separation client for the root agent daemon (iptables, key writes, addressbook saves)
 
 VM provisioning is handled by the separate `blockhost-provisioner-proxmox` package.
 Shared configuration is provided by `blockhost-common`.
@@ -78,11 +79,12 @@ blockhost-engine/
 ├── contracts/           # Solidity smart contracts
 │   ├── BlockhostSubscriptions.sol  # Main subscription contract
 │   └── mocks/           # Mock contracts for testing
-├── scripts/             # Deployment and test scripts
+├── scripts/             # Deployment, minting, and utility scripts
+│   ├── mint_nft.py      # NFT minting (installed as blockhost-mint-nft)
 ├── test/                # Contract tests
 ├── src/                 # TypeScript server source
 │   ├── monitor/         # Contract event polling & processing
-│   ├── handlers/        # Event handlers (calls blockhost-provisioner-proxmox scripts)
+│   ├── handlers/        # Event handlers (provisioner dispatch + NFT minting)
 │   ├── admin/           # On-chain admin commands (ECIES-encrypted, anti-replay)
 │   ├── reconcile/       # Periodic NFT state reconciliation
 │   ├── fund-manager/    # Automated fund withdrawal, distribution & gas management

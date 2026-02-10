@@ -180,13 +180,14 @@ Section: admin
 Priority: optional
 Architecture: all
 Depends: blockhost-common (>= 0.1.0), libpam-web3-tools (>= 0.5.0), nodejs (>= 18), python3 (>= 3.10)
-Recommends: blockhost-provisioner-proxmox (>= 0.1.0)
+Recommends: blockhost-provisioner-proxmox (>= 0.1.0) | blockhost-provisioner-libvirt (>= 0.1.0)
 Maintainer: Blockhost <admin@blockhost.io>
 Description: Blockchain-based VM hosting subscription engine
  Blockhost Engine provides the core subscription management system:
  - Smart contract deployment (BlockhostSubscriptions + AccessCredentialNFT)
  - Blockchain event monitor service (bundled JS, runs on Node.js)
  - Event handlers for VM provisioning
+ - NFT minting CLI (blockhost-mint-nft)
  - Server initialization and signup page generation
  .
  The monitor is a single bundled JavaScript file that runs on Node.js.
@@ -261,7 +262,12 @@ echo "Copying files..."
 # Bin scripts (init and signup generator)
 cp "$PROJECT_DIR/scripts/init-server.sh" "$PKG_DIR/usr/bin/blockhost-init"
 cp "$PROJECT_DIR/scripts/generate-signup-page.py" "$PKG_DIR/usr/bin/blockhost-generate-signup"
+cp "$PROJECT_DIR/scripts/mint_nft.py" "$PKG_DIR/usr/bin/blockhost-mint-nft"
 chmod 755 "$PKG_DIR/usr/bin/"*
+
+# Install mint_nft as importable Python module (used by provisioner packages)
+mkdir -p "$PKG_DIR/usr/lib/python3/dist-packages/blockhost"
+cp "$PROJECT_DIR/scripts/mint_nft.py" "$PKG_DIR/usr/lib/python3/dist-packages/blockhost/mint_nft.py"
 
 # Deployment scripts (need Hardhat/Node.js for one-time deployment)
 cp "$PROJECT_DIR/package.json" "$PROJECT_DIR/package-lock.json" "$PKG_DIR/opt/blockhost/"
@@ -306,6 +312,7 @@ echo "  /usr/share/blockhost/bw.js      - Bundled bw CLI ($BW_SIZE)"
 echo "  /usr/share/blockhost/ab.js      - Bundled ab CLI ($AB_SIZE)"
 echo "  /usr/bin/bw                     - Blockwallet CLI wrapper"
 echo "  /usr/bin/ab                     - Addressbook CLI wrapper"
+echo "  /usr/bin/blockhost-mint-nft      - NFT minting CLI"
 echo "  /usr/bin/blockhost-init         - Server initialization script"
 echo "  /usr/bin/blockhost-generate-signup - Signup page generator"
 echo "  /opt/blockhost/                 - Deployment scripts (require npm install)"
