@@ -75,7 +75,7 @@ async function processLogs(
             paidAmount: parsed.args[4],
             paymentToken: parsed.args[5],
             userEncrypted: parsed.args[6],
-          }, txHash, provider);
+          }, txHash);
           break;
 
         case "SubscriptionExtended":
