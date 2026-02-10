@@ -262,12 +262,18 @@ echo "Copying files..."
 # Bin scripts (init and signup generator)
 cp "$PROJECT_DIR/scripts/init-server.sh" "$PKG_DIR/usr/bin/blockhost-init"
 cp "$PROJECT_DIR/scripts/generate-signup-page.py" "$PKG_DIR/usr/bin/blockhost-generate-signup"
-cp "$PROJECT_DIR/scripts/mint_nft.py" "$PKG_DIR/usr/bin/blockhost-mint-nft"
 chmod 755 "$PKG_DIR/usr/bin/"*
 
-# Install mint_nft as importable Python module (used by provisioner packages)
+# Install mint_nft as importable Python module (used by wizard finalization)
 mkdir -p "$PKG_DIR/usr/lib/python3/dist-packages/blockhost"
 cp "$PROJECT_DIR/scripts/mint_nft.py" "$PKG_DIR/usr/lib/python3/dist-packages/blockhost/mint_nft.py"
+
+# Create blockhost-mint-nft CLI wrapper (used by engine's TypeScript handlers)
+cat > "$PKG_DIR/usr/bin/blockhost-mint-nft" << 'MINTEOF'
+#!/bin/sh
+exec python3 /usr/lib/python3/dist-packages/blockhost/mint_nft.py "$@"
+MINTEOF
+chmod 755 "$PKG_DIR/usr/bin/blockhost-mint-nft"
 
 # Deployment scripts (need Hardhat/Node.js for one-time deployment)
 cp "$PROJECT_DIR/package.json" "$PROJECT_DIR/package-lock.json" "$PKG_DIR/opt/blockhost/"
@@ -312,7 +318,8 @@ echo "  /usr/share/blockhost/bw.js      - Bundled bw CLI ($BW_SIZE)"
 echo "  /usr/share/blockhost/ab.js      - Bundled ab CLI ($AB_SIZE)"
 echo "  /usr/bin/bw                     - Blockwallet CLI wrapper"
 echo "  /usr/bin/ab                     - Addressbook CLI wrapper"
-echo "  /usr/bin/blockhost-mint-nft      - NFT minting CLI"
+echo "  /usr/bin/blockhost-mint-nft      - NFT minting CLI wrapper"
+echo "  /usr/lib/python3/dist-packages/blockhost/mint_nft.py - NFT minting module"
 echo "  /usr/bin/blockhost-init         - Server initialization script"
 echo "  /usr/bin/blockhost-generate-signup - Signup page generator"
 echo "  /opt/blockhost/                 - Deployment scripts (require npm install)"
