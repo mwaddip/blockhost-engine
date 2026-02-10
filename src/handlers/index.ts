@@ -8,6 +8,7 @@ import { spawn, execFileSync } from "child_process";
 import * as fs from "fs";
 import * as yaml from "js-yaml";
 import { getCommand } from "../provisioner";
+import { runReconciliation } from "../reconcile";
 
 // Paths on the server
 const WORKING_DIR = "/var/lib/blockhost";
@@ -231,7 +232,7 @@ async function destroyVm(vmName: string): Promise<{ success: boolean; output: st
   };
 }
 
-export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent, txHash: string): Promise<void> {
+export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent, txHash: string, provider: ethers.Provider): Promise<void> {
   const vmName = formatVmName(event.subscriptionId);
   const expiryDays = calculateExpiryDays(event.expiresAt);
 
@@ -308,6 +309,9 @@ export async function handleSubscriptionCreated(event: SubscriptionCreatedEvent,
       console.warn("[WARN] Failed to encrypt connection details, minting without user data");
     }
   }
+
+  // Step 3.5: Reconcile NFT state before minting to ensure token ID is in sync
+  await runReconciliation(provider);
 
   // Step 4: Mint NFT (separate from VM creation)
   const mintArgs = [
