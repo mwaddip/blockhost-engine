@@ -9,6 +9,9 @@
  *   bw withdraw [token] <to>
  *   bw swap <amount> <from-token> eth <wallet>
  *
+ * Debug:
+ *   bw --debug --cleanup <address>   Sweep all ETH from signing wallets to <address>
+ *
  * Environment:
  *   SEPOLIA_RPC          — RPC endpoint URL
  *   BLOCKHOST_CONTRACT   — Subscription contract address
@@ -21,6 +24,7 @@ import { balanceCommand } from "./commands/balance";
 import { splitCommand } from "./commands/split";
 import { withdrawCommand } from "./commands/withdraw";
 import { swapCommand } from "./commands/swap";
+import { cleanupCommand } from "./commands/cleanup";
 
 function printUsage(): void {
   console.log("bw (blockwallet) — scriptable wallet operations for blockhost");
@@ -33,14 +37,19 @@ function printUsage(): void {
   console.log("  bw withdraw [token] <to>                   Withdraw from contract");
   console.log("  bw swap <amount> <from-token> eth <wallet> Swap token for ETH");
   console.log("");
+  console.log("Debug:");
+  console.log("  bw --debug --cleanup <address>             Sweep ETH to address");
+  console.log("");
   console.log("Token shortcuts: eth, stable, or 0x address");
   console.log("Roles: admin, server, hot, dev, broker (from addressbook.json)");
 }
 
 async function main(): Promise<void> {
-  const [command, ...args] = process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  const flags = new Set(argv.filter((a) => a.startsWith("--")));
+  const positional = argv.filter((a) => !a.startsWith("--"));
 
-  if (!command || command === "--help" || command === "-h") {
+  if (flags.has("--help") || flags.has("-h") || argv.length === 0) {
     printUsage();
     process.exit(0);
   }
@@ -49,6 +58,24 @@ async function main(): Promise<void> {
   if (Object.keys(book).length === 0) {
     console.error("Error: addressbook is empty or missing. Run the installer wizard first.");
     process.exit(1);
+  }
+
+  // --debug --cleanup <address>: sweep testnet ETH back to a single address
+  if (flags.has("--cleanup")) {
+    if (!flags.has("--debug")) {
+      console.error("Error: --cleanup requires --debug flag");
+      process.exit(1);
+    }
+    const { provider } = createProviderAndContract();
+    await cleanupCommand(positional, book, provider);
+    return;
+  }
+
+  const [command, ...args] = positional;
+
+  if (!command) {
+    printUsage();
+    process.exit(0);
   }
 
   const { provider, contract } = createProviderAndContract();
