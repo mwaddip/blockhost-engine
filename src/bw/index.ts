@@ -13,7 +13,7 @@
  *   bw --debug --cleanup <address>   Sweep all ETH from signing wallets to <address>
  *
  * Environment:
- *   SEPOLIA_RPC          — RPC endpoint URL
+ *   RPC_URL          — RPC endpoint URL
  *   BLOCKHOST_CONTRACT   — Subscription contract address
  */
 

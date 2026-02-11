@@ -194,7 +194,7 @@ function updateConfig(nftContractAddress: string, subscriptionContractAddress: s
 async function main() {
   const [deployer] = await ethers.getSigners();
   const deployerAddress = deployer.address;
-  const rpcUrl = process.env.SEPOLIA_RPC || process.env.RPC_URL || "";
+  const rpcUrl = process.env.RPC_URL || "";
 
   // Get private key for forge deployment
   // Hardhat doesn't expose the private key directly, so we need it from env
@@ -206,7 +206,7 @@ async function main() {
   }
 
   if (!rpcUrl) {
-    console.error("Error: SEPOLIA_RPC or RPC_URL environment variable required");
+    console.error("Error: RPC_URL environment variable required");
     process.exit(1);
   }
 

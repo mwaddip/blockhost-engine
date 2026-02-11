@@ -205,7 +205,7 @@ Revenue sharing is configured in `/etc/blockhost/revenue-share.json`:
 
 ## bw (blockwallet) CLI
 
-Standalone CLI for scriptable wallet operations. Uses the same `SEPOLIA_RPC` and `BLOCKHOST_CONTRACT` env vars as the monitor.
+Standalone CLI for scriptable wallet operations. Uses the same `RPC_URL` and `BLOCKHOST_CONTRACT` env vars as the monitor.
 
 ```bash
 bw send <amount> <token> <from> <to>       # Send tokens between wallets

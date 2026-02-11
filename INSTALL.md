@@ -142,7 +142,7 @@ Note the **deployer wallet address** - you'll need to fund it with ETH for gas.
 Edit `/opt/blockhost/.env` with your contract address:
 
 ```bash
-SEPOLIA_RPC=https://ethereum-sepolia-rpc.publicnode.com
+RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 BLOCKHOST_CONTRACT=0xYourDeployedContractAddress
 ```
 

@@ -119,7 +119,7 @@ environment:
     - DEPLOYER_PRIVATE_KEY  # Wallet for deploying contracts and minting NFTs
     - BLOCKHOST_CONTRACT    # Deployed subscription contract address
     - NFT_CONTRACT          # Deployed NFT contract address (same as above currently)
-    - SEPOLIA_RPC_URL       # Ethereum RPC endpoint
+    - RPC_URL               # Ethereum RPC endpoint
 
 # CLI commands
 commands:

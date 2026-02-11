@@ -18,7 +18,7 @@ const ERC20_ABI = [
 ];
 
 async function main() {
-  const rpcUrl = process.env.SEPOLIA_RPC;
+  const rpcUrl = process.env.RPC_URL;
   const contractAddress = process.env.BLOCKHOST_CONTRACT;
   const usdcAddress = process.env.SEPOLIA_USDC;
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY;

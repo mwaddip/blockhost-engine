@@ -293,7 +293,7 @@ cp "$PROJECT_DIR/examples/blockhost-monitor.service" "$PKG_DIR/lib/systemd/syste
 # Example env
 cat > "$PKG_DIR/opt/blockhost/.env.example" << 'ENVEOF'
 # Blockhost Monitor Configuration
-SEPOLIA_RPC=https://ethereum-sepolia-rpc.publicnode.com
+RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 BLOCKHOST_CONTRACT=0xYourContractAddressHere
 ENVEOF
 

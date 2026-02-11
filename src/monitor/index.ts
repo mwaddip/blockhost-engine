@@ -138,11 +138,11 @@ async function processLogs(
 
 async function main() {
   // Load configuration from environment
-  const rpcUrl = process.env.SEPOLIA_RPC;
+  const rpcUrl = process.env.RPC_URL;
   const contractAddress = process.env.BLOCKHOST_CONTRACT;
 
   if (!rpcUrl) {
-    console.error("Error: SEPOLIA_RPC environment variable not set");
+    console.error("Error: RPC_URL environment variable not set");
     process.exit(1);
   }
 
