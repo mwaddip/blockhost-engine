@@ -9,6 +9,7 @@ Type=simple
 User=blockhost
 Group=blockhost
 Environment=HOME=/var/lib/blockhost
+Environment=NODE_OPTIONS=--dns-result-order=ipv4first
 EnvironmentFile=/opt/blockhost/.env
 ExecStart=/usr/bin/node /usr/share/blockhost/monitor.js
 Restart=always

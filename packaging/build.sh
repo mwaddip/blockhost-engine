@@ -67,6 +67,7 @@ echo "bw CLI bundle created: $BW_SIZE"
 # Create bw wrapper script
 cat > "$PKG_DIR/usr/bin/bw" << 'BWEOF'
 #!/bin/sh
+export NODE_OPTIONS="--dns-result-order=ipv4first${NODE_OPTIONS:+ $NODE_OPTIONS}"
 exec /usr/bin/node /usr/share/blockhost/bw.js "$@"
 BWEOF
 chmod 755 "$PKG_DIR/usr/bin/bw"
@@ -91,6 +92,7 @@ echo "ab CLI bundle created: $AB_SIZE"
 # Create ab wrapper script
 cat > "$PKG_DIR/usr/bin/ab" << 'ABEOF'
 #!/bin/sh
+export NODE_OPTIONS="--dns-result-order=ipv4first${NODE_OPTIONS:+ $NODE_OPTIONS}"
 exec /usr/bin/node /usr/share/blockhost/ab.js "$@"
 ABEOF
 chmod 755 "$PKG_DIR/usr/bin/ab"
