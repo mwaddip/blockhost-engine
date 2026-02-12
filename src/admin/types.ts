@@ -2,6 +2,8 @@
  * Admin command types for on-chain command processing
  */
 
+import type { ChildProcess } from "child_process";
+
 export type DestinationMode = 'any' | 'self' | 'server' | 'null';
 
 /**
@@ -20,6 +22,7 @@ export interface AdminCommand {
 export interface KnockParams {
   ports?: number[];          // Ports to open (validated against allowed_ports)
   duration?: number;         // How long to keep ports open (seconds)
+  source?: string;           // IPv6 address — if set, open ports only for this source
 }
 
 /**
@@ -53,7 +56,6 @@ export interface CommandDatabase {
  */
 export interface KnockActionConfig {
   allowed_ports?: number[];         // Ports that can be opened (default: [22])
-  max_duration?: number;            // Maximum duration in seconds (default: 600)
   default_duration?: number;        // Default duration if not specified (default: 300)
 }
 
@@ -72,8 +74,11 @@ export interface CommandResult {
 export interface ActiveKnock {
   txHash: string;
   ports: number[];
+  source?: string;              // IPv6 source filter (if set, rules are per-source)
   startTime: number;
   duration: number;
   timeoutId: NodeJS.Timeout;
-  sourceIp?: string;            // Set when SSH login detected
+  loginSource?: string;         // IP narrowed to after login detection (phase 2)
+  heartbeatInterval?: NodeJS.Timeout;  // Heartbeat file poller
+  tailProcess?: ChildProcess;   // auth.log tail handle
 }

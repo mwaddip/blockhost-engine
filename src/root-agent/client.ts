@@ -72,12 +72,16 @@ export async function callRootAgent(
 
 // --- Convenience wrappers ---
 
-export async function iptablesOpen(port: number, proto = "tcp", comment = "blockhost-knock"): Promise<void> {
-  await callRootAgent("iptables-open", { port, proto, comment });
+export async function iptablesOpen(port: number, proto = "tcp", comment = "blockhost-knock", source?: string): Promise<void> {
+  const params: Record<string, unknown> = { port, proto, comment };
+  if (source) params.source = source;
+  await callRootAgent("iptables-open", params);
 }
 
-export async function iptablesClose(port: number, proto = "tcp", comment = "blockhost-knock"): Promise<void> {
-  await callRootAgent("iptables-close", { port, proto, comment });
+export async function iptablesClose(port: number, proto = "tcp", comment = "blockhost-knock", source?: string): Promise<void> {
+  const params: Record<string, unknown> = { port, proto, comment };
+  if (source) params.source = source;
+  await callRootAgent("iptables-close", params);
 }
 
 export async function generateWallet(name: string): Promise<{ address: string }> {
