@@ -213,12 +213,14 @@ bw balance <role> [token]                   # Show wallet balances
 bw split <amount> <token> <ratios> <from> <to1> <to2> ...  # Split tokens
 bw withdraw [token] <to>                    # Withdraw from contract
 bw swap <amount> <from-token> eth <wallet>  # Swap token for ETH via Uniswap V2
+bw who <identifier>                        # Query NFT owner by token ID or 'admin'
 bw --debug --cleanup <address>             # Sweep all testnet ETH to address
 ```
 
 - **Token shortcuts**: `eth` (native), `stable` (contract's primary stablecoin), or `0x` address
 - **Roles**: `admin`, `server`, `hot`, `dev`, `broker` (resolved from addressbook.json)
 - **Signing**: Only roles with `keyfile` in addressbook can be used as `<from>`/`<wallet>`
+- **`who`**: Queries `ownerOf(tokenId)` on the AccessCredentialNFT contract. Accepts a numeric token ID or `admin` (reads `admin.credential_nft_id` from `blockhost.yaml`). Config from `web3-defaults.yaml` (`blockchain.nft_contract`, `blockchain.rpc_url`) — no env vars or addressbook needed.
 - **`--cleanup`**: Debug utility — sweeps ETH from every signing wallet back to a single address. Requires `--debug` flag as a safety guard. Skips wallets that are the target or have insufficient balance for gas.
 
 The fund-manager module imports `executeSend()`, `executeWithdraw()`, and `executeSwap()` from the bw command modules directly — all wallet operations flow through the same code paths.

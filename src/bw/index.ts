@@ -8,6 +8,7 @@
  *   bw split <amount> <token> <ratios> <from> <to1> <to2> ...
  *   bw withdraw [token] <to>
  *   bw swap <amount> <from-token> eth <wallet>
+ *   bw who <identifier>
  *
  * Debug:
  *   bw --debug --cleanup <address>   Sweep all ETH from signing wallets to <address>
@@ -25,6 +26,7 @@ import { splitCommand } from "./commands/split";
 import { withdrawCommand } from "./commands/withdraw";
 import { swapCommand } from "./commands/swap";
 import { cleanupCommand } from "./commands/cleanup";
+import { whoCommand } from "./commands/who";
 
 function printUsage(): void {
   console.log("bw (blockwallet) — scriptable wallet operations for blockhost");
@@ -36,6 +38,7 @@ function printUsage(): void {
   console.log("                                             Split tokens");
   console.log("  bw withdraw [token] <to>                   Withdraw from contract");
   console.log("  bw swap <amount> <from-token> eth <wallet> Swap token for ETH");
+  console.log("  bw who <identifier>                        Query NFT owner");
   console.log("");
   console.log("Debug:");
   console.log("  bw --debug --cleanup <address>             Sweep ETH to address");
@@ -52,6 +55,12 @@ async function main(): Promise<void> {
   if (flags.has("--help") || flags.has("-h") || argv.length === 0) {
     printUsage();
     process.exit(0);
+  }
+
+  // 'who' reads its own config (web3-defaults.yaml), no addressbook or env vars needed
+  if (positional[0] === "who") {
+    await whoCommand(positional.slice(1));
+    return;
   }
 
   const book = loadAddressbook();
