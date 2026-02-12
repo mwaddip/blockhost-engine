@@ -14,9 +14,6 @@ echo "Building blockhost-engine v${VERSION}..."
 cleanup() {
   rm -rf "$PKG_DIR"
   rm -rf "$SCRIPT_DIR/.forge-build"
-  rm -f "$PROJECT_DIR/.gitmodules" 2>/dev/null || true
-  rm -rf "$PROJECT_DIR/contracts/lib" 2>/dev/null || true
-  rm -rf "$PROJECT_DIR/lib/forge-std" "$PROJECT_DIR/lib/openzeppelin-contracts" 2>/dev/null || true
 }
 trap cleanup EXIT
 
