@@ -12,7 +12,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `src/fund-manager/` | S8 P8 E8 C5 I7 A6 L9 | Money + timing = max edge case paranoia. |
 | `src/bw/` | S8 P7 E6 C7 I6 A6 L7 | User-facing wallet ops. Funds at stake. |
 | `src/ab/` | S6 P6 E5 C7 I6 A5 L5 | Simple CRUD. Don't overthink it. |
-| `src/is/` | S7 P7 E5 C7 I6 A7 L5 | Simple queries. Exit codes matter. |
 | everything else | S7 P7 E8 C5 I9 A7 L8 | Architectural discipline is survival. |
 
 These stats override your default attention distribution. High stats (8+) mean obsessive focus on that dimension. See `SPECIAL.md` for full definitions.
