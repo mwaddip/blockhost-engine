@@ -746,15 +746,29 @@ def finalize_keypair(config: dict) -> tuple[bool, Optional[str]]:
             return False, f"Keypair generation failed: {result.stderr}"
 
         # Parse output for private key and public key
+        # pam_web3_tool outputs bare hex without 0x prefix:
+        #   Private key (hex): abcdef1234...
+        #   Public key (hex): 04abcdef...
         private_key = ""
         public_key = ""
         for line in result.stdout.strip().split("\n"):
             lower = line.lower()
-            if "private" in lower and "0x" in line:
-                val = line[line.index("0x") :].strip()
-                private_key = val.replace("0x", "")
-            elif "public" in lower and "0x" in line:
-                public_key = line[line.index("0x") :].strip()
+            if "private" in lower:
+                if ":" in line:
+                    val = line.split(":", 1)[1].strip()
+                else:
+                    val = line.strip()
+                val = val.replace("0x", "")
+                if len(val) == 64 and all(c in "0123456789abcdefABCDEF" for c in val):
+                    private_key = val
+            elif "public" in lower:
+                if ":" in line:
+                    val = line.split(":", 1)[1].strip()
+                else:
+                    val = line.strip()
+                val_clean = val.replace("0x", "")
+                if len(val_clean) == 130 or (val_clean.startswith("04") and len(val_clean) == 128):
+                    public_key = val if val.startswith("0x") else f"0x{val}"
             elif "address" not in lower and not private_key:
                 # Might be bare hex
                 stripped = line.strip()
