@@ -97,6 +97,31 @@ exec /usr/bin/node /usr/share/blockhost/ab.js "$@"
 ABEOF
 chmod 755 "$PKG_DIR/usr/bin/ab"
 
+# Bundle the is CLI into a single JS file
+echo "Bundling is CLI with esbuild..."
+npx esbuild "$PROJECT_DIR/src/is/index.ts" \
+    --bundle \
+    --platform=node \
+    --target=node18 \
+    --minify \
+    --outfile="$PKG_DIR/usr/share/blockhost/is.js"
+
+if [ ! -f "$PKG_DIR/usr/share/blockhost/is.js" ]; then
+    echo "ERROR: Failed to create is CLI bundle"
+    exit 1
+fi
+
+IS_SIZE=$(du -h "$PKG_DIR/usr/share/blockhost/is.js" | cut -f1)
+echo "is CLI bundle created: $IS_SIZE"
+
+# Create is wrapper script
+cat > "$PKG_DIR/usr/bin/is" << 'ISEOF'
+#!/bin/sh
+export NODE_OPTIONS="--dns-result-order=ipv4first${NODE_OPTIONS:+ $NODE_OPTIONS}"
+exec /usr/bin/node /usr/share/blockhost/is.js "$@"
+ISEOF
+chmod 755 "$PKG_DIR/usr/bin/is"
+
 # ============================================
 # Compile Solidity contracts with Foundry
 # ============================================
@@ -258,9 +283,10 @@ chmod 755 "$PKG_DIR/DEBIAN/postinst" "$PKG_DIR/DEBIAN/prerm" "$PKG_DIR/DEBIAN/po
 # ============================================
 echo "Copying files..."
 
-# Bin scripts (init and signup generator)
+# Bin scripts (init, signup generator, and deploy)
 cp "$PROJECT_DIR/scripts/init-server.sh" "$PKG_DIR/usr/bin/blockhost-init"
 cp "$PROJECT_DIR/scripts/generate-signup-page.py" "$PKG_DIR/usr/bin/blockhost-generate-signup"
+cp "$PROJECT_DIR/scripts/deploy-contracts.sh" "$PKG_DIR/usr/bin/blockhost-deploy-contracts"
 chmod 755 "$PKG_DIR/usr/bin/"*
 
 # Install mint_nft as importable Python module (used by wizard finalization)
@@ -315,8 +341,11 @@ echo "Package contents:"
 echo "  /usr/share/blockhost/monitor.js - Bundled monitor ($MONITOR_SIZE)"
 echo "  /usr/share/blockhost/bw.js      - Bundled bw CLI ($BW_SIZE)"
 echo "  /usr/share/blockhost/ab.js      - Bundled ab CLI ($AB_SIZE)"
+echo "  /usr/share/blockhost/is.js      - Bundled is CLI ($IS_SIZE)"
 echo "  /usr/bin/bw                     - Blockwallet CLI wrapper"
 echo "  /usr/bin/ab                     - Addressbook CLI wrapper"
+echo "  /usr/bin/is                     - Identity predicate CLI wrapper"
+echo "  /usr/bin/blockhost-deploy-contracts - Contract deployer script"
 echo "  /usr/bin/blockhost-mint-nft      - NFT minting CLI wrapper"
 echo "  /usr/lib/python3/dist-packages/blockhost/mint_nft.py - NFT minting module"
 echo "  /usr/bin/blockhost-init         - Server initialization script"
