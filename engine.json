@@ -9,5 +9,13 @@
   },
   "config_keys": {
     "session_key": "blockchain"
+  },
+  "constraints": {
+    "address_pattern": "^0x[0-9a-fA-F]{40}$",
+    "signature_pattern": "^0x[0-9a-fA-F]{130}$",
+    "native_token": "eth",
+    "native_token_label": "ETH",
+    "token_pattern": "^0x[0-9a-fA-F]{40}$",
+    "address_placeholder": "0x..."
   }
 }
