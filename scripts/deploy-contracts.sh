@@ -18,11 +18,11 @@ WEB3_DEFAULTS="/etc/blockhost/web3-defaults.yaml"
 DEPLOYER_KEY_FILE="/etc/blockhost/deployer.key"
 
 # Pre-compiled artifact paths
-NFT_ABI_PATH="/usr/share/libpam-web3-tools/contracts/AccessCredentialNFT.abi.json"
+NFT_ABI_PATH="/usr/share/blockhost/contracts/AccessCredentialNFT.json"
 SUB_ARTIFACT_PATH="/usr/share/blockhost/contracts/BlockhostSubscriptions.json"
 
 # NFT contract source (for forge fallback)
-NFT_SOURCE_PATH="/usr/share/libpam-web3-tools/contracts/AccessCredentialNFT.sol"
+NFT_SOURCE_PATH="/usr/share/blockhost/contracts/AccessCredentialNFT.sol"
 
 # Subscription contract source (for forge fallback)
 SUB_SOURCE_PATH="/opt/blockhost/contracts/BlockhostSubscriptions.sol"
@@ -120,10 +120,11 @@ print(bc)
         # Deploy via cast
         local deploy_data="${bytecode}${encoded_args#0x}"
         local result
-        result=$(cast send --create "$deploy_data" \
+        result=$(cast send \
             --private-key "$DEPLOYER_KEY" \
             --rpc-url "$RPC_URL" \
-            --json 2>&1) || {
+            --json \
+            --create "$deploy_data" 2>&1) || {
             echo "Error: NFT deployment transaction failed: $result" >&2
             return 1
         }
@@ -198,10 +199,11 @@ print(bc)
 
         # No constructor args for BlockhostSubscriptions
         local result
-        result=$(cast send --create "$bytecode" \
+        result=$(cast send \
             --private-key "$DEPLOYER_KEY" \
             --rpc-url "$RPC_URL" \
-            --json 2>&1) || {
+            --json \
+            --create "$bytecode" 2>&1) || {
             echo "Error: subscription deployment transaction failed: $result" >&2
             return 1
         }
