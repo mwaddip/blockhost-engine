@@ -155,6 +155,7 @@ VMs use NFT-based web3 authentication instead of passwords or SSH keys:
 | `addressbook.json` | `/etc/blockhost/` | Role-to-wallet mapping (admin, server, hot, dev, broker) |
 | `revenue-share.json` | `/etc/blockhost/` | Revenue sharing configuration (dev/broker splits) |
 | `vms.json` | `/var/lib/blockhost/` | VM database (IPs, VMIDs, reserved NFT tokens) |
+| `engine.json` | `/usr/share/blockhost/` | Engine manifest (identity, wizard plugin, constraints) |
 
 ## Fund Manager
 
@@ -261,6 +262,23 @@ ab --init <admin> <server> [dev] [broker] <keyfile>  # Bootstrap addressbook
 - **`ab del`**: Removes the entry from JSON but does NOT delete the keyfile (if any)
 - **`ab --init`**: Bootstrap addressbook with admin, server, and optionally dev/broker addresses. Keyfile (last arg) marks the end of input. Only works on an empty addressbook (fresh install safety).
 
+## Engine Manifest (`engine.json`)
+
+Declares engine identity, wizard plugin module, finalization steps, and chain-specific `constraints` used by consumers (installer, admin panel) for input validation and UI rendering.
+
+### `constraints`
+
+| Field | Description | EVM value |
+|-------|-------------|-----------|
+| `address_pattern` | Regex for valid addresses | `^0x[0-9a-fA-F]{40}$` |
+| `signature_pattern` | Regex for valid signatures | `^0x[0-9a-fA-F]{130}$` |
+| `native_token` | Native currency keyword for CLIs | `eth` |
+| `native_token_label` | Display label for native currency | `ETH` |
+| `token_pattern` | Regex for valid token addresses | `^0x[0-9a-fA-F]{40}$` |
+| `address_placeholder` | Placeholder for address inputs | `0x...` |
+
+All patterns are anchored regexes. If `constraints` is absent, consumers skip format validation and let CLIs reject invalid input.
+
 ## Privilege Separation
 
 The monitor service runs as the unprivileged `blockhost` user. Operations that require root (iptables, writing key files to `/etc/blockhost/`, saving addressbook) are delegated to a separate **root agent daemon** (provided by `blockhost-common`) via a Unix socket at `/run/blockhost/root-agent.sock`.
@@ -312,7 +330,7 @@ blockhost-engine/
 ├── blockhost/engine_evm/       # Installer wizard plugin
 │   ├── wizard.py              # Blueprint, API routes, finalization steps
 │   └── templates/engine_evm/  # Wizard page and summary templates
-├── engine.json                # Engine manifest (discovered by installer)
+├── engine.json                # Engine manifest (identity, wizard plugin, constraints)
 ├── src/                       # TypeScript source
 │   ├── monitor/               # Blockchain event monitor
 │   ├── handlers/              # Event handlers

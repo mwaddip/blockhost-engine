@@ -52,6 +52,7 @@ blockhost-engine is the core component of a hosting subscription management syst
 9. **Root Agent Client** (TypeScript) - Privilege separation client for the root agent daemon (iptables, key writes, addressbook saves)
 10. **Contract Deployer** (Bash) - `blockhost-deploy-contracts` script for production contract deployment
 11. **Installer Wizard Plugin** (Python) - `blockhost/engine_evm/wizard.py`, provides the blockchain configuration wizard page, API routes, and finalization steps to the installer
+12. **Engine Manifest** (`engine.json`) - Declares engine identity, wizard plugin, finalization steps, and `constraints` (chain-specific format patterns for input validation by installer/admin panel)
 
 VM provisioning is handled by the separate `blockhost-provisioner-proxmox` package.
 Shared configuration is provided by `blockhost-common`.
