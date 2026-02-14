@@ -141,7 +141,7 @@ def api_generate_wallet():
     """Generate a new secp256k1 keypair."""
     try:
         result = subprocess.run(
-            ["pam_web3_tool", "generate-keypair"],
+            ["cast", "wallet", "new"],
             capture_output=True,
             text=True,
             timeout=30,
@@ -172,7 +172,7 @@ def api_generate_wallet():
 
         return jsonify({"private_key": private_key, "address": address})
     except FileNotFoundError:
-        return jsonify({"error": "pam_web3_tool not installed"}), 500
+        return jsonify({"error": "cast not found — is Foundry installed?"}), 500
     except subprocess.TimeoutExpired:
         return jsonify({"error": "Key generation timed out"}), 500
 
