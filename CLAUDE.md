@@ -127,8 +127,6 @@ VMs are named based on subscription ID: `blockhost-001`, `blockhost-042`, etc. (
 
 ### Server Helper Functions
 
-- `getExpiredSubscriptions(offset, limit)` - For cleanup scripts
-- `getSubscriptionsExpiringSoon(withinSeconds, offset, limit)` - For warning notifications
 - `getSubscriptionsBySubscriber(address)` - User subscription lookup
 - `isSubscriptionActive(subscriptionId)` - Quick status check
 

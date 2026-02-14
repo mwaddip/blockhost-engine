@@ -424,26 +424,6 @@ describe("BlockhostSubscriptions", function () {
       expect(days).to.equal(0n);
     });
 
-    it("should get expired subscriptions", async function () {
-      await contract.connect(user1).buySubscription(1, 5, STABLECOIN_PAYMENT_ID, "0x");
-      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
-
-      await time.increase(10 * ONE_DAY);
-
-      const expired = await contract.getExpiredSubscriptions(0, 10);
-      expect(expired.length).to.equal(1);
-      expect(expired[0]).to.equal(1n);
-    });
-
-    it("should get subscriptions expiring soon", async function () {
-      await contract.connect(user1).buySubscription(1, 3, STABLECOIN_PAYMENT_ID, "0x");
-      await contract.connect(user2).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
-
-      const expiringSoon = await contract.getSubscriptionsExpiringSoon(5 * ONE_DAY, 0, 10);
-      expect(expiringSoon.length).to.equal(1);
-      expect(expiringSoon[0]).to.equal(1n);
-    });
-
     it("should get subscriptions by subscriber", async function () {
       await contract.connect(user1).buySubscription(1, 30, STABLECOIN_PAYMENT_ID, "0x");
       await contract.connect(user1).buySubscription(1, 15, STABLECOIN_PAYMENT_ID, "0x");

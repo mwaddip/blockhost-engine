@@ -130,7 +130,6 @@ cancelSubscription(subscriptionId)
 // Queries
 getSubscription(subscriptionId)
 isSubscriptionActive(subscriptionId)
-getExpiredSubscriptions(offset, limit)
 ```
 
 ## VM Authentication Flow
