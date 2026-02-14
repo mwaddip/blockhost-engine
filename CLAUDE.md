@@ -25,6 +25,7 @@ These stats override your default attention distribution. High stats (8+) mean o
 |----------|--------|-------------|
 | `facts/PROVISIONER_INTERFACE.md` | The provisioner contract — CLI commands dispatched by this engine, JSON output formats, manifest schema | Changing provisioner dispatch, parsing VM create output, adding new provisioner verbs |
 | `facts/COMMON_INTERFACE.md` | blockhost-common's public API — config, vm_db, root_agent | Using any import from `blockhost.*` or reading config files |
+| `facts/ENGINE_INTERFACE.md` | Engine interface — CLIs, contract ABI, monitor, fund manager, wizard plugin | Adding engine CLIs, modifying wizard plugin exports, changing config file schemas |
 
 **The engine is a consumer of both contracts.** It dispatches to provisioner CLI commands (via manifest) and imports from common. If either contract changes, engine code may need updating.
 
@@ -50,6 +51,7 @@ blockhost-engine is the core component of a hosting subscription management syst
 8. **NFT Minting** (Python) - `blockhost-mint-nft` CLI, mints access credential NFTs via Foundry's `cast`
 9. **Root Agent Client** (TypeScript) - Privilege separation client for the root agent daemon (iptables, key writes, addressbook saves)
 10. **Contract Deployer** (Bash) - `blockhost-deploy-contracts` script for production contract deployment
+11. **Installer Wizard Plugin** (Python) - `blockhost/engine_evm/wizard.py`, provides the blockchain configuration wizard page, API routes, and finalization steps to the installer
 
 VM provisioning is handled by the separate `blockhost-provisioner-proxmox` package.
 Shared configuration is provided by `blockhost-common`.
@@ -79,6 +81,10 @@ source ~/projects/sharedenv/blockhost.env
 
 ```
 blockhost-engine/
+├── blockhost/engine_evm/ # Installer wizard plugin (Python)
+│   ├── wizard.py         # Blueprint, API routes, finalization steps
+│   └── templates/engine_evm/  # blockchain.html, summary_section.html
+├── engine.json           # Engine manifest (discovered by installer at /usr/share/blockhost/)
 ├── contracts/           # Solidity smart contracts
 │   ├── BlockhostSubscriptions.sol  # Main subscription contract
 │   └── mocks/           # Mock contracts for testing

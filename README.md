@@ -42,6 +42,7 @@ The engine discovers provisioner commands via a manifest file (`/usr/share/block
 | `src/ab/` | TypeScript | Addressbook CLI for managing wallet entries |
 | `src/is/` | TypeScript | Identity predicate CLI (NFT ownership, signature, contract checks) |
 | `src/root-agent/` | TypeScript | Client for the privileged root agent daemon |
+| `blockhost/engine_evm/` | Python | Installer wizard plugin (blockchain config, finalization steps) |
 | `scripts/` | TS/Python/Bash | Deployment, signup page generation, server init |
 
 ## Prerequisites
@@ -308,6 +309,10 @@ blockhost-engine/
 │   ├── init-server.sh         # Server initialization
 │   ├── generate-signup-page.py
 │   └── signup-template.html
+├── blockhost/engine_evm/       # Installer wizard plugin
+│   ├── wizard.py              # Blueprint, API routes, finalization steps
+│   └── templates/engine_evm/  # Wizard page and summary templates
+├── engine.json                # Engine manifest (discovered by installer)
 ├── src/                       # TypeScript source
 │   ├── monitor/               # Blockchain event monitor
 │   ├── handlers/              # Event handlers

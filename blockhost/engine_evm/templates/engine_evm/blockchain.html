@@ -1,0 +1,490 @@
+{% extends "base.html" %}
+{% from "macros/wizard_steps.html" import step_bar %}
+
+{% block title %}Blockchain - BlockHost Installer{% endblock %}
+
+{% block content %}
+{{ step_bar('evm') }}
+
+<div class="card">
+    <h2>Blockchain Configuration</h2>
+    <p class="text-muted mb-2">Configure the EVM blockchain for subscription management and payment processing.</p>
+
+    <form id="blockchain-form" method="POST" action="{{ url_for('engine_evm.wizard_evm') }}">
+
+        <!-- Network Selection -->
+        <div class="form-section">
+            <h3>Network</h3>
+            <div class="form-group">
+                <label for="chain_id">Blockchain Network</label>
+                <select id="chain_id" name="chain_id" onchange="onChainChange()">
+                    {% for cid, cname in chain_names.items() %}
+                    <option value="{{ cid }}" {% if blockchain.get('chain_id', '11155111') == cid %}selected{% endif %}>
+                        {{ cname }} ({{ cid }})
+                    </option>
+                    {% endfor %}
+                    <option value="custom" {% if blockchain.get('chain_id') and blockchain.get('chain_id') not in chain_names %}selected{% endif %}>
+                        Custom Chain ID
+                    </option>
+                </select>
+            </div>
+
+            <div class="form-group hidden" id="custom-chain-group">
+                <label for="custom_chain_id">Custom Chain ID</label>
+                <input type="text" id="custom_chain_id" name="custom_chain_id"
+                       value="{{ blockchain.get('chain_id', '') if blockchain.get('chain_id') not in chain_names else '' }}"
+                       placeholder="e.g. 8453">
+            </div>
+
+            <div class="form-group">
+                <label for="rpc_url">RPC Endpoint</label>
+                <input type="url" id="rpc_url" name="rpc_url"
+                       value="{{ blockchain.get('rpc_url', '') }}"
+                       placeholder="https://ethereum-sepolia-rpc.publicnode.com" required>
+                <p class="text-muted mt-1" style="font-size: 0.75rem;">
+                    JSON-RPC endpoint for the selected network. Use a reliable provider (Infura, Alchemy, public node).
+                </p>
+            </div>
+        </div>
+
+        <!-- Deployer Wallet -->
+        <div class="form-section">
+            <h3>Deployer Wallet</h3>
+            <p class="text-muted mb-2" style="font-size: 0.875rem;">
+                This wallet deploys contracts and signs transactions. It needs ETH for gas fees.
+            </p>
+
+            <div class="radio-group mb-2">
+                <label class="radio-option" onclick="selectRadio(this); toggleWalletMode('generate')">
+                    <input type="radio" name="wallet_mode" value="generate"
+                           {% if blockchain.get('wallet_mode', 'generate') == 'generate' %}checked{% endif %}>
+                    <div class="radio-label">
+                        <h4>Generate New Wallet</h4>
+                        <p>Create a fresh secp256k1 keypair for this server</p>
+                    </div>
+                </label>
+                <label class="radio-option" onclick="selectRadio(this); toggleWalletMode('import')">
+                    <input type="radio" name="wallet_mode" value="import"
+                           {% if blockchain.get('wallet_mode') == 'import' %}checked{% endif %}>
+                    <div class="radio-label">
+                        <h4>Import Existing Key</h4>
+                        <p>Use an existing private key</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Generate wallet section -->
+            <div id="wallet-generate" {% if blockchain.get('wallet_mode') == 'import' %}class="hidden"{% endif %}>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary" onclick="generateWallet()" id="generate-btn">
+                        Generate Keypair
+                    </button>
+                    <div id="generate-status" class="mt-1"></div>
+                </div>
+                <div id="generated-wallet" class="hidden">
+                    <div class="alert alert-warning" style="font-size: 0.85rem;">
+                        Save this private key securely. It will be written to <code>/etc/blockhost/deployer.key</code> during setup.
+                    </div>
+                    <div class="form-group">
+                        <label>Generated Address</label>
+                        <div class="address-box">
+                            <span id="gen-address"></span>
+                            <button type="button" class="btn btn-small copy-btn" onclick="copyToClipboard('gen-address', this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import wallet section -->
+            <div id="wallet-import" {% if blockchain.get('wallet_mode', 'generate') != 'import' %}class="hidden"{% endif %}>
+                <div class="form-group">
+                    <label for="import_key">Private Key</label>
+                    <div class="input-group">
+                        <input type="password" id="import_key" placeholder="0x... (64 hex chars)"
+                               value="{{ blockchain.get('deployer_key', '') }}">
+                        <button type="button" class="btn btn-secondary" onclick="validateKey()">Validate</button>
+                    </div>
+                    <div id="import-status" class="mt-1"></div>
+                </div>
+                <div id="imported-wallet" class="hidden">
+                    <div class="form-group">
+                        <label>Derived Address</label>
+                        <div class="address-box">
+                            <span id="import-address">{{ blockchain.get('deployer_address', '') }}</span>
+                            <button type="button" class="btn btn-small copy-btn" onclick="copyToClipboard('import-address', this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden fields for form submission -->
+            <input type="hidden" name="deployer_key" id="deployer_key" value="{{ blockchain.get('deployer_key', '') }}">
+            <input type="hidden" name="deployer_address" id="deployer_address" value="{{ blockchain.get('deployer_address', '') }}">
+
+            <!-- Balance check -->
+            <div id="balance-section" class="hidden">
+                <div class="form-group">
+                    <label>Wallet Balance</label>
+                    <div class="flex items-center gap-1">
+                        <span id="balance-value" class="text-muted">--</span>
+                        <button type="button" class="btn btn-small btn-secondary" onclick="checkBalance()">Check</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contract Deployment -->
+        <div class="form-section">
+            <h3>Smart Contracts</h3>
+
+            <div class="radio-group mb-2">
+                <label class="radio-option" onclick="selectRadio(this); toggleContractMode('deploy')">
+                    <input type="radio" name="contract_mode" value="deploy"
+                           {% if blockchain.get('contract_mode', 'deploy') == 'deploy' %}checked{% endif %}>
+                    <div class="radio-label">
+                        <h4>Deploy New Contracts</h4>
+                        <p>Deploy fresh NFT and subscription contracts during setup</p>
+                    </div>
+                </label>
+                <label class="radio-option" onclick="selectRadio(this); toggleContractMode('existing')">
+                    <input type="radio" name="contract_mode" value="existing"
+                           {% if blockchain.get('contract_mode') == 'existing' %}checked{% endif %}>
+                    <div class="radio-label">
+                        <h4>Use Existing Contracts</h4>
+                        <p>Provide addresses of already-deployed contracts</p>
+                    </div>
+                </label>
+            </div>
+
+            <!-- Existing contracts input -->
+            <div id="contracts-existing" {% if blockchain.get('contract_mode', 'deploy') != 'existing' %}class="hidden"{% endif %}>
+                <div class="form-group">
+                    <label for="nft_contract">NFT Contract Address</label>
+                    <input type="text" id="nft_contract" name="nft_contract"
+                           value="{{ blockchain.get('nft_contract', '') }}"
+                           placeholder="0x...">
+                </div>
+                <div class="form-group">
+                    <label for="subscription_contract">Subscription Contract Address</label>
+                    <input type="text" id="subscription_contract" name="subscription_contract"
+                           value="{{ blockchain.get('subscription_contract', '') }}"
+                           placeholder="0x...">
+                </div>
+            </div>
+
+            <div id="contracts-deploy" {% if blockchain.get('contract_mode') == 'existing' %}class="hidden"{% endif %}>
+                <p class="text-muted" style="font-size: 0.85rem;">
+                    Contracts will be deployed automatically during the finalization step.
+                    The deployer wallet needs enough ETH for gas.
+                </p>
+            </div>
+        </div>
+
+        <!-- Subscription Plan -->
+        <div class="form-section">
+            <h3>Default Subscription Plan</h3>
+            <p class="text-muted mb-2" style="font-size: 0.875rem;">
+                Configure the initial subscription tier created on the contract.
+            </p>
+
+            <div class="two-col">
+                <div class="form-group">
+                    <label for="plan_name">Plan Name</label>
+                    <input type="text" id="plan_name" name="plan_name"
+                           value="{{ blockchain.get('plan_name', 'Basic VM') }}"
+                           placeholder="Basic VM">
+                </div>
+                <div class="form-group">
+                    <label for="plan_price_cents">Price (cents/day)</label>
+                    <input type="number" id="plan_price_cents" name="plan_price_cents"
+                           value="{{ blockchain.get('plan_price_cents', 50) }}"
+                           min="1" max="100000">
+                    <p class="text-muted mt-1" style="font-size: 0.75rem;">
+                        USD cents per day. Example: 50 = $0.50/day ($15/month).
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue Sharing -->
+        <div class="form-section">
+            <h3>Revenue Sharing</h3>
+            <p class="text-muted mb-2" style="font-size: 0.875rem;">
+                Optionally distribute a percentage of revenue to dev and broker wallets.
+            </p>
+
+            <label class="checkbox-group">
+                <input type="checkbox" name="revenue_share_enabled" id="revenue_share_enabled"
+                       {% if blockchain.get('revenue_share_enabled') %}checked{% endif %}
+                       onchange="toggleRevenueShare()">
+                <div class="checkbox-label">
+                    <h4>Enable Revenue Sharing</h4>
+                    <p>Automatically distribute a percentage of collected funds</p>
+                </div>
+            </label>
+
+            <div id="revenue-details" {% if not blockchain.get('revenue_share_enabled') %}class="hidden"{% endif %}>
+                <div class="form-group" style="margin-top: 1rem;">
+                    <label for="revenue_share_percent">Total Revenue Share (%)</label>
+                    <input type="number" id="revenue_share_percent" name="revenue_share_percent"
+                           value="{{ blockchain.get('revenue_share_percent', 1.0) }}"
+                           min="0.1" max="100" step="0.1">
+                    <p class="text-muted mt-1" style="font-size: 0.75rem;">
+                        Percentage of revenue distributed to recipients. The remainder goes to admin.
+                    </p>
+                </div>
+
+                <div class="two-col" style="margin-top: 0.5rem;">
+                    <label class="checkbox-group">
+                        <input type="checkbox" name="revenue_share_dev"
+                               {% if blockchain.get('revenue_share_dev', true) %}checked{% endif %}>
+                        <div class="checkbox-label">
+                            <h4>Dev Share</h4>
+                            <p>Split to developer wallet</p>
+                        </div>
+                    </label>
+                    <label class="checkbox-group">
+                        <input type="checkbox" name="revenue_share_broker"
+                               {% if blockchain.get('revenue_share_broker') %}checked{% endif %}>
+                        <div class="checkbox-label">
+                            <h4>Broker Share</h4>
+                            <p>Split to broker/referral wallet</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between" style="margin-top: 2rem;">
+            <a href="{{ url_for('wizard_storage') }}" class="btn btn-secondary">Back</a>
+            <button type="submit" class="btn btn-primary" id="continue-btn">Continue</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Radio selection helper
+function selectRadio(element) {
+    var radio = element.querySelector('input[type="radio"]');
+    radio.checked = true;
+    var group = element.closest('.radio-group');
+    group.querySelectorAll('.radio-option').forEach(function(opt) {
+        opt.classList.remove('selected');
+    });
+    element.classList.add('selected');
+}
+
+// Initialize radio states
+document.querySelectorAll('input[type="radio"]:checked').forEach(function(radio) {
+    var opt = radio.closest('.radio-option');
+    if (opt) opt.classList.add('selected');
+});
+
+// Chain selection
+function onChainChange() {
+    var select = document.getElementById('chain_id');
+    var customGroup = document.getElementById('custom-chain-group');
+    if (select.value === 'custom') {
+        customGroup.classList.remove('hidden');
+    } else {
+        customGroup.classList.add('hidden');
+    }
+
+    // Suggest default RPC for known chains
+    var rpcDefaults = {
+        '11155111': 'https://ethereum-sepolia-rpc.publicnode.com',
+        '1': 'https://ethereum-rpc.publicnode.com',
+        '137': 'https://polygon-bor-rpc.publicnode.com',
+        '42161': 'https://arbitrum-one-rpc.publicnode.com'
+    };
+
+    var rpcInput = document.getElementById('rpc_url');
+    if (!rpcInput.value && rpcDefaults[select.value]) {
+        rpcInput.value = rpcDefaults[select.value];
+    }
+}
+
+// Wallet mode toggle
+function toggleWalletMode(mode) {
+    document.getElementById('wallet-generate').classList.toggle('hidden', mode !== 'generate');
+    document.getElementById('wallet-import').classList.toggle('hidden', mode !== 'import');
+}
+
+// Contract mode toggle
+function toggleContractMode(mode) {
+    document.getElementById('contracts-deploy').classList.toggle('hidden', mode !== 'deploy');
+    document.getElementById('contracts-existing').classList.toggle('hidden', mode !== 'existing');
+}
+
+// Revenue sharing toggle
+function toggleRevenueShare() {
+    var checked = document.getElementById('revenue_share_enabled').checked;
+    document.getElementById('revenue-details').classList.toggle('hidden', !checked);
+}
+
+// Generate wallet
+function generateWallet() {
+    var btn = document.getElementById('generate-btn');
+    var status = document.getElementById('generate-status');
+    btn.disabled = true;
+    status.innerHTML = '<div class="status-indicator loading"><div class="spinner"></div> Generating...</div>';
+
+    fetch('{{ url_for("engine_evm.api_generate_wallet") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        if (data.error) {
+            status.innerHTML = '<div class="status-indicator error">' + data.error + '</div>';
+            return;
+        }
+
+        document.getElementById('deployer_key').value = data.private_key;
+        document.getElementById('deployer_address').value = data.address;
+        document.getElementById('gen-address').textContent = data.address;
+        document.getElementById('generated-wallet').classList.remove('hidden');
+        document.getElementById('balance-section').classList.remove('hidden');
+        status.innerHTML = '<div class="status-indicator success">Keypair generated</div>';
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        status.innerHTML = '<div class="status-indicator error">' + err.message + '</div>';
+    });
+}
+
+// Validate imported key
+function validateKey() {
+    var key = document.getElementById('import_key').value.trim();
+    var status = document.getElementById('import-status');
+
+    if (!key) {
+        status.innerHTML = '<div class="status-indicator error">Enter a private key</div>';
+        return;
+    }
+
+    status.innerHTML = '<div class="status-indicator loading"><div class="spinner"></div> Validating...</div>';
+
+    fetch('{{ url_for("engine_evm.api_validate_key") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({private_key: key})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) {
+            status.innerHTML = '<div class="status-indicator error">' + data.error + '</div>';
+            return;
+        }
+
+        document.getElementById('deployer_key').value = data.private_key;
+        document.getElementById('deployer_address').value = data.address;
+        document.getElementById('import-address').textContent = data.address;
+        document.getElementById('imported-wallet').classList.remove('hidden');
+        document.getElementById('balance-section').classList.remove('hidden');
+        status.innerHTML = '<div class="status-indicator success">Valid key</div>';
+    })
+    .catch(function(err) {
+        status.innerHTML = '<div class="status-indicator error">' + err.message + '</div>';
+    });
+}
+
+// Check balance
+function checkBalance() {
+    var address = document.getElementById('deployer_address').value;
+    var rpcUrl = document.getElementById('rpc_url').value;
+    var balanceEl = document.getElementById('balance-value');
+
+    if (!address || !rpcUrl) {
+        balanceEl.textContent = 'Need address and RPC URL';
+        return;
+    }
+
+    balanceEl.textContent = 'Checking...';
+
+    fetch('{{ url_for("engine_evm.api_balance") }}?address=' + encodeURIComponent(address) + '&rpc_url=' + encodeURIComponent(rpcUrl))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.error) {
+            balanceEl.textContent = data.error;
+            balanceEl.className = 'text-error';
+        } else {
+            balanceEl.textContent = data.balance_eth + ' ETH';
+            balanceEl.className = data.has_funds ? 'text-success' : 'text-warning';
+        }
+    })
+    .catch(function(err) {
+        balanceEl.textContent = err.message;
+        balanceEl.className = 'text-error';
+    });
+}
+
+// Copy to clipboard
+function copyToClipboard(elementId, btn) {
+    var text = document.getElementById(elementId).textContent;
+    navigator.clipboard.writeText(text).then(function() {
+        var orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(function() { btn.textContent = orig; }, 2000);
+    }).catch(function() {
+        // Fallback
+        var range = document.createRange();
+        range.selectNodeContents(document.getElementById(elementId));
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+}
+
+// Form validation
+document.getElementById('blockchain-form').addEventListener('submit', function(e) {
+    var deployerKey = document.getElementById('deployer_key').value;
+    if (!deployerKey) {
+        e.preventDefault();
+        alert('Please generate or import a deployer wallet before continuing.');
+        return;
+    }
+
+    var rpcUrl = document.getElementById('rpc_url').value;
+    if (!rpcUrl) {
+        e.preventDefault();
+        alert('RPC endpoint is required.');
+        return;
+    }
+
+    var contractMode = document.querySelector('input[name="contract_mode"]:checked').value;
+    if (contractMode === 'existing') {
+        var nft = document.getElementById('nft_contract').value.trim();
+        var sub = document.getElementById('subscription_contract').value.trim();
+        if (!nft || !sub) {
+            e.preventDefault();
+            alert('Both contract addresses are required when using existing contracts.');
+            return;
+        }
+    }
+});
+
+// Show custom chain input if already selected
+onChainChange();
+
+// Show balance section if address is already set
+if (document.getElementById('deployer_address').value) {
+    document.getElementById('balance-section').classList.remove('hidden');
+    if (document.getElementById('deployer_address').value && document.getElementById('gen-address')) {
+        document.getElementById('gen-address').textContent = document.getElementById('deployer_address').value;
+    }
+}
+
+// Show previously imported wallet details
+{% if blockchain.get('deployer_address') %}
+    {% if blockchain.get('wallet_mode') == 'import' %}
+    document.getElementById('imported-wallet').classList.remove('hidden');
+    {% else %}
+    document.getElementById('generated-wallet').classList.remove('hidden');
+    {% endif %}
+{% endif %}
+</script>
+{% endblock %}
