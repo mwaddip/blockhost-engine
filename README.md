@@ -50,7 +50,7 @@ The engine discovers provisioner commands via a manifest file (`/usr/share/block
 - Foundry (forge/cast) for NFT contract deployment
 - `blockhost-common` package (shared configuration)
 - A provisioner package (e.g. `blockhost-provisioner-proxmox`) with a manifest
-- `libpam-web3-tools` >= 0.4.0 (provides NFT contract and signing page)
+- `libpam-web3-tools` >= 0.5.0 (provides NFT contract and signing page)
 
 ## Quick Start
 
@@ -137,7 +137,7 @@ getExpiredSubscriptions(offset, limit)
 
 VMs use NFT-based web3 authentication instead of passwords or SSH keys:
 
-1. VM serves signing page on port 8080 (fetched from NFT metadata)
+1. VM serves signing page on port 8443 via web3-auth-svc (HTTPS, self-signed TLS)
 2. User connects wallet that owns the NFT
 3. User signs challenge message
 4. Signing page displays 6-digit OTP

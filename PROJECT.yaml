@@ -179,8 +179,7 @@ deployment:
     template: debian-12-web3-template (VMID 9001)
     authentication: NFT-based web3 (pam_web3 module)
     services:
-      - web3-auth-svc (verifies NFT ownership)
-      - web3-sign (serves signing page from NFT metadata)
+      - web3-auth-svc (verifies NFT ownership, serves signing page over HTTPS on port 8443)
 
 # Flow diagram
 workflow: |
@@ -195,7 +194,7 @@ workflow: |
      d. Runs terraform apply to create VM
      e. Mints NFT to user with embedded signing page
   6. VM boots with web3-only SSH authentication
-  7. User visits VM:8080 (signing page from NFT)
+  7. User visits VM:8443 (signing page served by web3-auth-svc over HTTPS)
   8. User signs with wallet → gets OTP
   9. User SSHs to VM, enters OTP → authenticated
 
