@@ -795,18 +795,27 @@ def finalize_keypair(config: dict) -> tuple[bool, Optional[str]]:
         _set_blockhost_ownership(server_key, 0o640)
 
         # Derive public key if not parsed
+        # Output: "Public key (secp256k1, hex): 04abcdef..." (bare hex, no 0x)
         if not public_key:
             try:
                 result2 = subprocess.run(
-                    ["pam_web3_tool", "key-to-pubkey", "--key", f"0x{private_key}"],
+                    ["pam_web3_tool", "derive-pubkey", "--private-key", private_key],
                     capture_output=True,
                     text=True,
                     timeout=10,
                 )
                 if result2.returncode == 0:
-                    public_key = result2.stdout.strip()
-                    if "0x" in public_key:
-                        public_key = public_key[public_key.index("0x") :]
+                    for line in result2.stdout.strip().split("\n"):
+                        if ":" in line:
+                            val = line.split(":", 1)[1].strip()
+                        else:
+                            val = line.strip()
+                        val_clean = val.replace("0x", "")
+                        if len(val_clean) >= 128 and all(
+                            c in "0123456789abcdefABCDEF" for c in val_clean
+                        ):
+                            public_key = f"0x{val_clean}"
+                            break
             except (FileNotFoundError, subprocess.TimeoutExpired):
                 pass
 
