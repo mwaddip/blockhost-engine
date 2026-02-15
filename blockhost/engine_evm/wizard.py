@@ -961,29 +961,6 @@ def finalize_chain_config(config: dict) -> tuple[bool, Optional[str]]:
             int(chain_id) if chain_id.isdigit() else 0, ""
         )
 
-        # --- db.yaml ---
-        db_config = {
-            "db_file": "/var/lib/blockhost/vm-db.json",
-            "bridge": bridge,
-            "gc_grace_days": int(provisioner.get("gc_grace_days", 7)),
-            "vmid_range": {
-                "start": int(provisioner.get("vmid_start", 100)),
-                "end": int(provisioner.get("vmid_end", 999)),
-            },
-            "ip_pool": {
-                "network": provisioner.get("ip_network", "192.168.122.0/24"),
-                "start": provisioner.get("ip_start", "192.168.122.200"),
-                "end": provisioner.get("ip_end", "192.168.122.250"),
-                "gateway": provisioner.get("gateway", "192.168.122.1"),
-            },
-        }
-        if ipv6.get("prefix"):
-            db_config["ipv6_pool"] = {"prefix": ipv6["prefix"]}
-
-        db_path = CONFIG_DIR / "db.yaml"
-        _write_yaml(db_path, db_config)
-        _set_blockhost_ownership(db_path, 0o640)
-
         # --- web3-defaults.yaml ---
         chain_id_int = int(chain_id) if chain_id.isdigit() else chain_id
         web3_config = {
