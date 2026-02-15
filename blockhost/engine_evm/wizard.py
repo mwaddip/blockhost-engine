@@ -1077,7 +1077,13 @@ def finalize_chain_config(config: dict) -> tuple[bool, Optional[str]]:
 
         # --- db.yaml ---
         db_config = {
+            "db_file": "/var/lib/blockhost/vm-db.json",
             "bridge": bridge,
+            "gc_grace_days": int(provisioner.get("gc_grace_days", 7)),
+            "vmid_range": {
+                "start": int(provisioner.get("vmid_start", 100)),
+                "end": int(provisioner.get("vmid_end", 999)),
+            },
             "ip_pool": {
                 "network": provisioner.get("ip_network", "192.168.122.0/24"),
                 "start": provisioner.get("ip_start", "192.168.122.200"),
