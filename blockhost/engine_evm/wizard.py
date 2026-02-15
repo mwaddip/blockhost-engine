@@ -555,7 +555,6 @@ def get_summary_template() -> str:
 def get_progress_steps_meta() -> list[dict]:
     """Return step metadata for the progress UI."""
     pre = [
-        {"id": "keypair", "label": "Generating server keypair"},
         {"id": "wallet", "label": "Setting up deployer wallet"},
         {"id": "contracts", "label": "Deploying smart contracts"},
         {"id": "chain_config", "label": "Writing configuration files"},
@@ -579,7 +578,6 @@ def get_finalization_steps() -> list[tuple]:
     Each tuple: (step_id, display_name, callable[, hint])
     """
     return [
-        ("keypair", "Generating server keypair", finalize_keypair),
         ("wallet", "Setting up deployer wallet", finalize_wallet),
         (
             "contracts",
@@ -717,118 +715,6 @@ def _derive_address_from_key(private_key: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Pre-finalization step functions
 # ---------------------------------------------------------------------------
-
-
-def finalize_keypair(config: dict) -> tuple[bool, Optional[str]]:
-    """Generate server ECIES keypair (server.key + server.pubkey).
-
-    Idempotent: skips if server.key already exists.
-    """
-    try:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        server_key = CONFIG_DIR / "server.key"
-        server_pubkey = CONFIG_DIR / "server.pubkey"
-
-        if server_key.exists() and server_pubkey.exists():
-            # Already exists — read public key for step result
-            pubkey = server_pubkey.read_text().strip()
-            config["_step_result_keypair"] = {"public_key": pubkey}
-            return True, None
-
-        result = subprocess.run(
-            ["pam_web3_tool", "generate-keypair"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-
-        if result.returncode != 0:
-            return False, f"Keypair generation failed: {result.stderr}"
-
-        # Parse output for private key and public key
-        # pam_web3_tool outputs bare hex without 0x prefix:
-        #   Private key (hex): abcdef1234...
-        #   Public key (hex): 04abcdef...
-        private_key = ""
-        public_key = ""
-        for line in result.stdout.strip().split("\n"):
-            lower = line.lower()
-            if "private" in lower:
-                if ":" in line:
-                    val = line.split(":", 1)[1].strip()
-                else:
-                    val = line.strip()
-                val = val.replace("0x", "")
-                if len(val) == 64 and all(c in "0123456789abcdefABCDEF" for c in val):
-                    private_key = val
-            elif "public" in lower:
-                if ":" in line:
-                    val = line.split(":", 1)[1].strip()
-                else:
-                    val = line.strip()
-                val_clean = val.replace("0x", "")
-                if len(val_clean) == 130 or (val_clean.startswith("04") and len(val_clean) == 128):
-                    public_key = val if val.startswith("0x") else f"0x{val}"
-            elif "address" not in lower and not private_key:
-                # Might be bare hex
-                stripped = line.strip()
-                if len(stripped) == 64 and all(c in "0123456789abcdefABCDEF" for c in stripped):
-                    private_key = stripped
-
-        if not private_key:
-            # Try parsing as two lines: private key, public key
-            lines = [l.strip() for l in result.stdout.strip().split("\n") if l.strip()]
-            for line in lines:
-                clean = line.replace("0x", "")
-                if len(clean) == 64 and not private_key:
-                    private_key = clean
-                elif len(clean) == 130 or (
-                    line.startswith("0x04") and len(line) == 132
-                ):
-                    public_key = line if line.startswith("0x") else f"0x{line}"
-
-        if not private_key:
-            return False, "Could not parse private key from keypair output"
-
-        # Write server.key (hex, 64 chars, no 0x prefix)
-        server_key.write_text(private_key)
-        _set_blockhost_ownership(server_key, 0o640)
-
-        # Derive public key if not parsed
-        # Output: "Public key (secp256k1, hex): 04abcdef..." (bare hex, no 0x)
-        if not public_key:
-            try:
-                result2 = subprocess.run(
-                    ["pam_web3_tool", "derive-pubkey", "--private-key", private_key],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                if result2.returncode == 0:
-                    for line in result2.stdout.strip().split("\n"):
-                        if ":" in line:
-                            val = line.split(":", 1)[1].strip()
-                        else:
-                            val = line.strip()
-                        val_clean = val.replace("0x", "")
-                        if len(val_clean) >= 128 and all(
-                            c in "0123456789abcdefABCDEF" for c in val_clean
-                        ):
-                            public_key = f"0x{val_clean}"
-                            break
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                pass
-
-        if public_key:
-            server_pubkey.write_text(public_key)
-            _set_blockhost_ownership(server_pubkey, 0o644)
-
-        config["_step_result_keypair"] = {"public_key": public_key or "(derived at runtime)"}
-        return True, None
-    except FileNotFoundError:
-        return False, "pam_web3_tool not installed"
-    except Exception as e:
-        return False, str(e)
 
 
 def finalize_wallet(config: dict) -> tuple[bool, Optional[str]]:
