@@ -1070,7 +1070,7 @@ def finalize_chain_config(config: dict) -> tuple[bool, Optional[str]]:
         if pubkey_file.exists():
             server_pubkey = pubkey_file.read_text().strip()
 
-        bridge = _discover_bridge()
+        bridge = provisioner.get("bridge") or _discover_bridge()
         usdc_address = USDC_BY_CHAIN.get(
             int(chain_id) if chain_id.isdigit() else 0, ""
         )
