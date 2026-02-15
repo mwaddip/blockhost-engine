@@ -1131,9 +1131,26 @@ def finalize_mint_nft(config: dict) -> tuple[bool, Optional[str]]:
         if not admin_wallet:
             return False, "Admin wallet address not configured"
 
-        # Encrypt connection details for the NFT
+        # Build connection details JSON for the NFT
+        https_cfg = config.get("https", {})
+        if not https_cfg:
+            https_file = CONFIG_DIR / "https.json"
+            if https_file.exists():
+                https_cfg = json.loads(https_file.read_text())
+        server_addr = https_cfg.get("ipv6_address") or https_cfg.get("hostname", "")
+
         user_encrypted = "0x"
-        if admin_signature:
+        if not server_addr:
+            current_app.logger.warning(
+                "No server address found in HTTPS config — "
+                "NFT userEncrypted will be empty"
+            )
+        elif admin_signature:
+            connection_details = json.dumps({
+                "hostname": server_addr,
+                "port": 22,
+                "username": "admin",
+            })
             try:
                 encrypt_result = subprocess.run(
                     [
@@ -1142,7 +1159,7 @@ def finalize_mint_nft(config: dict) -> tuple[bool, Optional[str]]:
                         "--signature",
                         admin_signature,
                         "--plaintext",
-                        f"admin-credential:{admin_wallet}",
+                        connection_details,
                     ],
                     capture_output=True,
                     text=True,
